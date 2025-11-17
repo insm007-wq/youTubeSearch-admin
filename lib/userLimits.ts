@@ -25,11 +25,11 @@ function getUserLimitsCollection(db: Db): Collection<UserLimit> {
 export async function getAllUsers(): Promise<UserLimit[]> {
   const db = await getDb()
 
-  // 1. users 컬렉션에서 모든 로그인 사용자 조회
+  // 메인 프로젝트의 users 컬렉션 사용 (userId: "provider:providerAccountId" 형식)
   const usersCollection = db.collection('users')
   const users = await usersCollection.find({}).sort({ createdAt: -1 }).toArray()
 
-  // 2. user_limits 컬렉션에서 모든 설정 조회
+  // user_limits 컬렉션에서 모든 설정 조회
   const userLimitsCollection = getUserLimitsCollection(db)
   const userLimits = await userLimitsCollection.find({}).toArray()
 
@@ -39,39 +39,41 @@ export async function getAllUsers(): Promise<UserLimit[]> {
     userLimitsMap.set(limit.userId, limit)
   })
 
-  // 3. users와 user_limits 병합
-  const result: UserLimit[] = users.map((user: any) => {
-    const userId = user._id.toString() // ObjectId를 string으로 변환
-    const limit = userLimitsMap.get(userId)
+  // users와 user_limits 병합
+  const result: UserLimit[] = users
+    .filter((user: any) => user.userId && user.email) // userId 필드가 있는 사용자만 필터링 (메인의 users 컬렉션 구조)
+    .map((user: any) => {
+      const userId = user.userId // 메인에서 저장된 "provider:providerAccountId" 형식
+      const limit = userLimitsMap.get(userId)
 
-    if (limit) {
-      // user_limits에 있으면 해당 정보 사용
-      return {
-        _id: limit._id?.toString(),
-        userId: userId,
-        email: user.email,
-        name: user.name,
-        image: user.image,
-        dailyLimit: limit.dailyLimit,
-        isDeactivated: limit.isDeactivated,
-        createdAt: limit.createdAt,
-        updatedAt: limit.updatedAt,
+      if (limit) {
+        // user_limits에 있으면 해당 정보 사용
+        return {
+          _id: user._id?.toString(),
+          userId: userId,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          dailyLimit: limit.dailyLimit,
+          isDeactivated: limit.isDeactivated,
+          createdAt: limit.createdAt,
+          updatedAt: limit.updatedAt,
+        }
+      } else {
+        // user_limits에 없으면 기본값 사용 (새 소셜 로그인 사용자)
+        return {
+          _id: user._id?.toString(),
+          userId: userId,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          dailyLimit: 15, // 기본값: 15
+          isDeactivated: false, // 기본값
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        }
       }
-    } else {
-      // user_limits에 없으면 기본값 사용 (새 소셜 로그인 사용자)
-      return {
-        _id: user._id?.toString(),
-        userId: userId,
-        email: user.email,
-        name: user.name,
-        image: user.image,
-        dailyLimit: 20, // 기본값
-        isDeactivated: false, // 기본값
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      }
-    }
-  })
+    })
 
   return result
 }
@@ -133,9 +135,10 @@ export async function getUserById(userId: string): Promise<UserLimit | null> {
 export async function searchUsers(query: string): Promise<UserLimit[]> {
   const db = await getDb()
 
-  // 1. users 컬렉션에서 검색
+  // 메인 프로젝트의 users 컬렉션에서 검색 (userId 필드가 있는 사용자만)
   const usersCollection = db.collection('users')
   const searchFilter = {
+    userId: { $exists: true }, // 메인 프로젝트 구조 필터링
     $or: [
       { email: { $regex: query, $options: 'i' } },
       { name: { $regex: query, $options: 'i' } },
@@ -143,7 +146,7 @@ export async function searchUsers(query: string): Promise<UserLimit[]> {
   }
   const users = await usersCollection.find(searchFilter).sort({ createdAt: -1 }).toArray()
 
-  // 2. user_limits 컬렉션에서 모든 설정 조회
+  // user_limits 컬렉션에서 모든 설정 조회
   const userLimitsCollection = getUserLimitsCollection(db)
   const userLimits = await userLimitsCollection.find({}).toArray()
 
@@ -153,14 +156,14 @@ export async function searchUsers(query: string): Promise<UserLimit[]> {
     userLimitsMap.set(limit.userId, limit)
   })
 
-  // 3. users와 user_limits 병합
+  // users와 user_limits 병합
   const result: UserLimit[] = users.map((user: any) => {
-    const userId = user._id.toString() // ObjectId를 string으로 변환
+    const userId = user.userId // 메인에서 저장된 "provider:providerAccountId" 형식
     const limit = userLimitsMap.get(userId)
 
     if (limit) {
       return {
-        _id: limit._id?.toString(),
+        _id: user._id?.toString(),
         userId: userId,
         email: user.email,
         name: user.name,
@@ -177,7 +180,7 @@ export async function searchUsers(query: string): Promise<UserLimit[]> {
         email: user.email,
         name: user.name,
         image: user.image,
-        dailyLimit: 20,
+        dailyLimit: 15, // 기본값: 15
         isDeactivated: false,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
