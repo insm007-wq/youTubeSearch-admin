@@ -1,0 +1,138 @@
+.user-table-container {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.user-table thead {
+  background-color: #f5f5f5;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.user-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+}
+
+.user-table tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+  transition: background-color 0.2s;
+}
+
+.user-table tbody tr:hover {
+  background-color: #fafafa;
+}
+
+.user-table tbody tr.deactivated {
+  opacity: 0.6;
+  background-color: #f9f9f9;
+}
+
+.user-table td {
+  padding: 12px 16px;
+}
+
+.name-cell {
+  font-family: inherit;
+  font-size: 14px;
+  color: #333;
+}
+
+.user-id {
+  font-family: inherit;
+  font-size: 14px;
+  color: #333;
+}
+
+.quota-badge {
+  display: inline-block;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.remaining-badge {
+  display: inline-block;
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.status-badge.active {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.deactivated {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.date-cell {
+  font-size: 12px;
+  color: #666;
+}
+
+.actions-cell {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  background-color: #f0f0f0;
+}
+
+.edit-btn:hover {
+  color: #1976d2;
+}
+
+.deactivate-btn:hover {
+  color: #d32f2f;
+}
+
+.activate-btn:hover {
+  color: #388e3c;
+}
+
+.empty-state {
+  padding: 40px 16px;
+  text-align: center;
+  color: #999;
+}
