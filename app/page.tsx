@@ -111,6 +111,14 @@ export default function AdminPage() {
     setIsLoading(true)
 
     try {
+      console.log('🔴 비활성화 요청:', {
+        _id: user._id,
+        userId: user.userId,
+        email: user.email,
+        isDeactivated: user.isDeactivated,
+        url: `/api/admin/users/${user._id}`,
+      })
+
       const response = await fetch(`/api/admin/users/${user._id}`, {
         method: 'PATCH',
         headers: {

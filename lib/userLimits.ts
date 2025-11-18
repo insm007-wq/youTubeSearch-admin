@@ -33,6 +33,11 @@ export async function getAllUsers(): Promise<UserLimit[]> {
   const userLimitsCollection = getUserLimitsCollection(db)
   const userLimits = await userLimitsCollection.find({}).toArray()
 
+  console.log(`📊 getAllUsers - user_limits 컬렉션 조회 결과:`)
+  userLimits.forEach((limit: any) => {
+    console.log(`  ├─ userId: ${limit.userId}, isDeactivated: ${limit.isDeactivated}, dailyLimit: ${limit.dailyLimit}`)
+  })
+
   // userId를 key로 하는 map으로 변환
   const userLimitsMap = new Map()
   userLimits.forEach((limit: any) => {
@@ -246,6 +251,8 @@ export async function deactivateUser(userId: string): Promise<UserLimit | null> 
   const collection = getUserLimitsCollection(db)
   const usersCollection = db.collection('users')
 
+  console.log(`🔴 deactivateUser 시작 - userId: ${userId}`)
+
   // 새 레코드를 생성하는 경우 users 컬렉션에서 이메일 정보 조회
   let userEmail = 'unknown@example.com'
   try {
@@ -260,8 +267,11 @@ export async function deactivateUser(userId: string): Promise<UserLimit | null> 
     // Ignore
   }
 
-  return collection.findOneAndUpdate(
-    createUserFilter(userId),
+  const filter = createUserFilter(userId)
+  console.log(`📍 검색 필터: ${JSON.stringify(filter)}`)
+
+  const result = await collection.findOneAndUpdate(
+    filter,
     {
       $set: {
         userId,
@@ -279,6 +289,15 @@ export async function deactivateUser(userId: string): Promise<UserLimit | null> 
       upsert: true
     }
   )
+
+  console.log(`✅ deactivateUser 결과:`, {
+    isDeactivated: result?.isDeactivated,
+    dailyLimit: result?.dailyLimit,
+    userId: result?.userId,
+    email: result?.email,
+  })
+
+  return result
 }
 
 export async function activateUser(userId: string, dailyLimit: number = 20): Promise<UserLimit | null> {
