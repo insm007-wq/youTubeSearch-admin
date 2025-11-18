@@ -129,9 +129,17 @@ export default function AdminPage() {
 
       const data = await response.json()
 
+      console.log('📤 비활성화 API 응답:', data)
+
       if (!data.success) {
         throw new Error(data.error || '비활성화 실패')
       }
+
+      console.log('✅ 비활성화 완료, 상태 업데이트:', {
+        _id: user._id,
+        isDeactivated: data.data?.isDeactivated,
+        dailyLimit: data.data?.dailyLimit,
+      })
 
       setUsers(
         users.map((u) =>
@@ -140,8 +148,14 @@ export default function AdminPage() {
             : u
         )
       )
+
+      // 즉시 새로고침하여 DB에서 데이터 다시 조회
+      setTimeout(() => {
+        location.reload()
+      }, 500)
     } catch (err) {
       setError(err instanceof Error ? err.message : '오류가 발생했습니다')
+      console.error('❌ 비활성화 오류:', err)
     } finally {
       setIsLoading(false)
     }
