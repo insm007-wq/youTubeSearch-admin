@@ -71,7 +71,7 @@ export async function getAllUsers(): Promise<UserLimit[]> {
       } else {
         // user_limits에 없으면 자동으로 생성
         console.log(`  ⚠️  user_limits에 없음 - 자동 생성: ${userId}`)
-        const newLimit = await updateUserLimit(userId, 15)
+        const newLimit = await updateUserLimit(userId, 15, user.email)
         if (newLimit) {
           return {
             _id: user._id?.toString(),
@@ -250,27 +250,32 @@ function createUserFilter(userId: string) {
 
 export async function updateUserLimit(
   userId: string,
-  dailyLimit: number
+  dailyLimit: number,
+  userEmail?: string
 ): Promise<UserLimit | null> {
   const db = await getDb()
   const collection = getUserLimitsCollection(db)
   const usersCollection = db.collection('users')
 
   // 새 레코드를 생성하는 경우 users 컬렉션에서 이메일 정보 조회
-  let userEmail = 'unknown@example.com'
-  try {
-    const { ObjectId } = require('mongodb')
-    if (ObjectId.isValid(userId)) {
-      const user = await usersCollection.findOne({ _id: new ObjectId(userId) })
-      if (user) {
-        userEmail = user.email
+  let email = userEmail || 'unknown@example.com'
+
+  // userEmail이 제공되지 않았을 경우만 조회
+  if (!userEmail) {
+    try {
+      const { ObjectId } = require('mongodb')
+      if (ObjectId.isValid(userId)) {
+        const user = await usersCollection.findOne({ _id: new ObjectId(userId) })
+        if (user) {
+          email = user.email
+        }
       }
+    } catch (e) {
+      // Ignore
     }
-  } catch (e) {
-    // Ignore
   }
 
-  console.log(`📝 updateUserLimit 시작 - userId: ${userId}, dailyLimit: ${dailyLimit}`)
+  console.log(`📝 updateUserLimit 시작 - userId: ${userId}, dailyLimit: ${dailyLimit}, email: ${email}`)
 
   const filter = createUserFilter(userId)
   const existingRecord = await collection.findOne(filter)
@@ -283,7 +288,7 @@ export async function updateUserLimit(
     {
       $set: {
         userId,
-        email: userEmail,
+        email,
         dailyLimit,
         isDeactivated: currentIsDeactivated,  // 🔑 기존 상태 유지 (false로 리셋하지 않음)
         updatedAt: new Date(),
