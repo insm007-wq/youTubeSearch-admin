@@ -38,11 +38,11 @@ export async function PATCH(
   { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const userId = (await params).userId
+    const _id = (await params).userId
     const body = await request.json()
     const { dailyLimit, action } = body
 
-    const user = await getUserById(userId)
+    const user = await getUserById(_id)
 
     if (!user) {
       return NextResponse.json(
@@ -54,20 +54,23 @@ export async function PATCH(
     let updatedUser: any = user
     let log
 
+    // user.userId는 "google:103840..." 형식 (실제 userId)
+    const actualUserId = user.userId
+
     if (action === 'deactivate') {
-      const result = await deactivateUser(userId)
+      const result = await deactivateUser(actualUserId)
       if (result) updatedUser = result
-      log = await logUserDeactivation(userId, user.email)
+      log = await logUserDeactivation(actualUserId, user.email)
     } else if (action === 'activate') {
       const limit = dailyLimit || 20
-      const result = await activateUser(userId, limit)
+      const result = await activateUser(actualUserId, limit)
       if (result) updatedUser = result
-      log = await logUserActivation(userId, user.email, limit)
+      log = await logUserActivation(actualUserId, user.email, limit)
     } else if (dailyLimit !== undefined) {
       const previousLimit = user.dailyLimit
-      const result = await updateUserLimit(userId, dailyLimit)
+      const result = await updateUserLimit(actualUserId, dailyLimit)
       if (result) updatedUser = result
-      log = await logUserLimitChange(userId, user.email, previousLimit, dailyLimit)
+      log = await logUserLimitChange(actualUserId, user.email, previousLimit, dailyLimit)
     }
 
     return NextResponse.json({

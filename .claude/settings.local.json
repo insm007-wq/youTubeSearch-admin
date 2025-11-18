@@ -52,7 +52,9 @@
       "Bash(node debug-api-usage.mjs:*)",
       "Bash(node check-users.mjs:*)",
       "Bash(node check-all-accounts.mjs:*)",
-      "Bash(node cleanup_usage.mjs:*)"
+      "Bash(node cleanup_usage.mjs:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote add:*)"
     ],
     "deny": [],
     "ask": []
