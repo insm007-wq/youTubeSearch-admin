@@ -19,7 +19,12 @@ async function getDb(): Promise<Db> {
 }
 
 function getUserLimitsCollection(db: Db): Collection<UserLimit> {
-  return db.collection<UserLimit>('user_limits')
+  const collection = db.collection<UserLimit>('user_limits')
+  // 이메일을 프라이머리 키로 설정
+  collection.createIndex({ email: 1 }, { unique: true }).catch(() => {
+    // 인덱스가 이미 존재할 수 있음
+  })
+  return collection
 }
 
 export async function getAllUsers(): Promise<UserLimit[]> {
@@ -59,10 +64,13 @@ export async function getAllUsers(): Promise<UserLimit[]> {
 
       if (limit) {
         // user_limits에 있으면 해당 정보 사용
-        console.log(`  ✅ user_limits에서 찾음: ${userEmail} (isDeactivated: ${limit.isDeactivated})`)
+        // provider 추출 (userId: "google:123456" -> "google")
+        const provider = user.userId?.split(':')[0] || 'unknown'
+        const displayUserId = `${provider}:${limit.userId.substring(0, 8)}...`
+        console.log(`  ✅ user_limits에서 찾음: ${userEmail} (provider: ${provider}, isDeactivated: ${limit.isDeactivated})`)
         return {
           _id: user._id?.toString(),
-          userId: limit.userId,
+          userId: displayUserId, // provider 정보 포함
           email: limit.email,
           name: user.name,
           image: user.image,
@@ -73,12 +81,14 @@ export async function getAllUsers(): Promise<UserLimit[]> {
         }
       } else {
         // user_limits에 없으면 자동으로 생성
-        console.log(`  ⚠️  user_limits에 없음 - 자동 생성: ${user.userId}`)
+        const provider = user.userId?.split(':')[0] || 'unknown'
+        console.log(`  ⚠️  user_limits에 없음 - 자동 생성: ${user.userId} (provider: ${provider})`)
         const newLimit = await updateUserLimit(user.userId, 15, user.email)
         if (newLimit) {
+          const displayUserId = `${provider}:${newLimit.userId.substring(0, 8)}...`
           return {
             _id: user._id?.toString(),
-            userId: newLimit.userId,
+            userId: displayUserId, // provider 정보 포함
             email: newLimit.email,
             name: user.name,
             image: user.image,
@@ -90,9 +100,11 @@ export async function getAllUsers(): Promise<UserLimit[]> {
         }
 
         // 생성 실패 시 기본값 반환
+        const failProvider = user.userId?.split(':')[0] || 'unknown'
+        const displayUserId = `${failProvider}:unknown`
         return {
           _id: user._id?.toString(),
-          userId: user.userId,
+          userId: displayUserId,
           email: user.email,
           name: user.name,
           image: user.image,
