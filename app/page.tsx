@@ -104,10 +104,6 @@ export default function AdminPage() {
   }
 
   const handleDeactivate = async (user: User) => {
-    if (!confirm(`${user.email} 사용자를 비활성화하시겠습니까?`)) {
-      return
-    }
-
     setIsLoading(true)
 
     try {
@@ -161,10 +157,6 @@ export default function AdminPage() {
   }
 
   const handleActivate = async (user: User) => {
-    if (!confirm(`${user.email} 사용자를 활성화하시겠습니까?`)) {
-      return
-    }
-
     setIsLoading(true)
 
     try {
