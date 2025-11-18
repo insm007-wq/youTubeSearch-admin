@@ -64,13 +64,11 @@ export async function getAllUsers(): Promise<UserLimit[]> {
 
       if (limit) {
         // user_limits에 있으면 해당 정보 사용
-        // provider 추출 (userId: "google:123456" -> "google")
-        const provider = user.userId?.split(':')[0] || 'unknown'
-        const displayUserId = `${provider}:${limit.userId.substring(0, 8)}...`
-        console.log(`  ✅ user_limits에서 찾음: ${userEmail} (provider: ${provider}, isDeactivated: ${limit.isDeactivated})`)
+        // user.userId는 이미 "google:123456" 형식이므로 그대로 사용
+        console.log(`  ✅ user_limits에서 찾음: ${userEmail} (userId: ${user.userId}, isDeactivated: ${limit.isDeactivated})`)
         return {
           _id: user._id?.toString(),
-          userId: displayUserId, // provider 정보 포함
+          userId: user.userId, // 이미 "provider:id" 형식
           email: limit.email,
           name: user.name,
           image: user.image,
@@ -81,14 +79,12 @@ export async function getAllUsers(): Promise<UserLimit[]> {
         }
       } else {
         // user_limits에 없으면 자동으로 생성
-        const provider = user.userId?.split(':')[0] || 'unknown'
-        console.log(`  ⚠️  user_limits에 없음 - 자동 생성: ${user.userId} (provider: ${provider})`)
+        console.log(`  ⚠️  user_limits에 없음 - 자동 생성: ${user.userId}`)
         const newLimit = await updateUserLimit(user.userId, 15, user.email)
         if (newLimit) {
-          const displayUserId = `${provider}:${newLimit.userId.substring(0, 8)}...`
           return {
             _id: user._id?.toString(),
-            userId: displayUserId, // provider 정보 포함
+            userId: user.userId, // 이미 "provider:id" 형식
             email: newLimit.email,
             name: user.name,
             image: user.image,
@@ -100,11 +96,9 @@ export async function getAllUsers(): Promise<UserLimit[]> {
         }
 
         // 생성 실패 시 기본값 반환
-        const failProvider = user.userId?.split(':')[0] || 'unknown'
-        const displayUserId = `${failProvider}:unknown`
         return {
           _id: user._id?.toString(),
-          userId: displayUserId,
+          userId: user.userId,
           email: user.email,
           name: user.name,
           image: user.image,
