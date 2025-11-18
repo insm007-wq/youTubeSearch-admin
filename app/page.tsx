@@ -149,10 +149,9 @@ export default function AdminPage() {
         )
       )
 
-      // 즉시 새로고침하여 DB에서 데이터 다시 조회
-      setTimeout(() => {
-        location.reload()
-      }, 500)
+      // 자동 새로고침 제거 - 사용자가 수동으로 새로고침 하도록 함
+      // 이렇게 하면 console 로그를 확인할 수 있음
+      console.log('💡 팁: F5를 눌러 새로고침 하면 DB에서 최신 데이터를 조회합니다')
     } catch (err) {
       setError(err instanceof Error ? err.message : '오류가 발생했습니다')
       console.error('❌ 비활성화 오류:', err)
