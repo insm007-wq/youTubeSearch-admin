@@ -49,9 +49,9 @@ export async function getAllUsers(): Promise<UserLimit[]> {
   })
 
   // users와 user_limits 병합
-  const result: UserLimit[] = users
+  const resultPromises = users
     .filter((user: any) => user.userId && user.email) // userId 필드가 있는 사용자만 필터링 (메인의 users 컬렉션 구조)
-    .map((user: any) => {
+    .map(async (user: any) => {
       const userId = user.userId // 메인에서 저장된 "provider:providerAccountId" 형식
       const limit = userLimitsMap.get(userId)
 
@@ -69,7 +69,24 @@ export async function getAllUsers(): Promise<UserLimit[]> {
           updatedAt: limit.updatedAt,
         }
       } else {
-        // user_limits에 없으면 기본값 사용 (새 소셜 로그인 사용자)
+        // user_limits에 없으면 자동으로 생성
+        console.log(`  ⚠️  user_limits에 없음 - 자동 생성: ${userId}`)
+        const newLimit = await updateUserLimit(userId, 15)
+        if (newLimit) {
+          return {
+            _id: user._id?.toString(),
+            userId: newLimit.userId,
+            email: newLimit.email,
+            name: user.name,
+            image: user.image,
+            dailyLimit: newLimit.dailyLimit,
+            isDeactivated: newLimit.isDeactivated,
+            createdAt: newLimit.createdAt,
+            updatedAt: newLimit.updatedAt,
+          }
+        }
+
+        // 생성 실패 시 기본값 반환
         return {
           _id: user._id?.toString(),
           userId: userId,
@@ -83,6 +100,8 @@ export async function getAllUsers(): Promise<UserLimit[]> {
         }
       }
     })
+
+  const result = await Promise.all(resultPromises)
 
   return result
 }
