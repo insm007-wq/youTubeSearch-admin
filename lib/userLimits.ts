@@ -33,9 +33,13 @@ export async function getAllUsers(): Promise<UserLimit[]> {
   const userLimitsCollection = getUserLimitsCollection(db)
   const userLimits = await userLimitsCollection.find({}).toArray()
 
-  console.log(`📊 getAllUsers - user_limits 컬렉션 조회 결과:`)
+  console.log(`\n📊 getAllUsers 시작`)
+  console.log(`📊 user_limits 컬렉션 조회 결과 (${userLimits.length}개):`)
   userLimits.forEach((limit: any) => {
-    console.log(`  ├─ userId: ${limit.userId}, isDeactivated: ${limit.isDeactivated}, dailyLimit: ${limit.dailyLimit}`)
+    console.log(`  ├─ userId: ${limit.userId}`)
+    console.log(`     ├─ isDeactivated: ${limit.isDeactivated}`)
+    console.log(`     ├─ dailyLimit: ${limit.dailyLimit}`)
+    console.log(`     └─ email: ${limit.email}`)
   })
 
   // userId를 key로 하는 map으로 변환
@@ -328,6 +332,15 @@ export async function deactivateUser(userId: string): Promise<UserLimit | null> 
     dailyLimit: result?.dailyLimit,
     userId: result?.userId,
     email: result?.email,
+  })
+
+  // 저장 후 즉시 재조회하여 확인
+  const verify = await collection.findOne(filter)
+  console.log(`🔍 저장 확인 재조회:`, {
+    found: !!verify,
+    isDeactivated: verify?.isDeactivated,
+    dailyLimit: verify?.dailyLimit,
+    userId: verify?.userId,
   })
 
   return result
