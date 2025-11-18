@@ -94,20 +94,42 @@ export async function getUserById(userId: string): Promise<UserLimit | null> {
   const db = await getDb()
   const userLimitsCollection = getUserLimitsCollection(db)
 
+  console.log(`\n🔍 getUserById 시작 - userId: ${userId}`)
+
   // Try to find by _id (MongoDB ObjectId) first in user_limits
   try {
     const { ObjectId } = require('mongodb')
     if (ObjectId.isValid(userId)) {
+      console.log(`   ├─ ObjectId로 검색 시도: { _id: new ObjectId("${userId}") }`)
       const userLimit = await userLimitsCollection.findOne({ _id: new ObjectId(userId) })
-      if (userLimit) return userLimit
+      if (userLimit) {
+        console.log(`   ├─ ✅ user_limits에서 찾음:`, {
+          _id: userLimit._id,
+          userId: userLimit.userId,
+          email: userLimit.email,
+          isDeactivated: userLimit.isDeactivated,
+        })
+        return userLimit
+      }
+      console.log(`   ├─ user_limits에서 못 찾음`)
     }
   } catch (e) {
-    // If ObjectId creation fails, fall through to userId search
+    console.log(`   ├─ ObjectId 변환 실패:`, e)
   }
 
   // Fall back to searching by userId field in user_limits
+  console.log(`   ├─ userId 필드로 검색 시도: { userId: "${userId}" }`)
   let userLimit = await userLimitsCollection.findOne({ userId })
-  if (userLimit) return userLimit
+  if (userLimit) {
+    console.log(`   ├─ ✅ user_limits에서 찾음:`, {
+      _id: userLimit._id,
+      userId: userLimit.userId,
+      email: userLimit.email,
+      isDeactivated: userLimit.isDeactivated,
+    })
+    return userLimit
+  }
+  console.log(`   ├─ user_limits에서 못 찾음`)
 
   // If not found in user_limits, check users collection (for new social login users)
   const usersCollection = db.collection('users')
@@ -225,14 +247,22 @@ export async function updateUserLimit(
     // Ignore
   }
 
-  return collection.findOneAndUpdate(
-    createUserFilter(userId),
+  console.log(`📝 updateUserLimit 시작 - userId: ${userId}, dailyLimit: ${dailyLimit}`)
+
+  const filter = createUserFilter(userId)
+  const existingRecord = await collection.findOne(filter)
+  const currentIsDeactivated = existingRecord?.isDeactivated ?? false
+
+  console.log(`   ├─ 기존 isDeactivated: ${currentIsDeactivated}`)
+
+  const result = await collection.findOneAndUpdate(
+    filter,
     {
       $set: {
         userId,
         email: userEmail,
         dailyLimit,
-        isDeactivated: false,
+        isDeactivated: currentIsDeactivated,  // 🔑 기존 상태 유지 (false로 리셋하지 않음)
         updatedAt: new Date(),
       },
       $setOnInsert: {
@@ -244,6 +274,9 @@ export async function updateUserLimit(
       upsert: true  // ✅ 새 레코드 생성
     }
   )
+
+  console.log(`   ├─ 저장된 isDeactivated: ${result?.isDeactivated}`)
+  return result
 }
 
 export async function deactivateUser(userId: string): Promise<UserLimit | null> {
@@ -305,6 +338,8 @@ export async function activateUser(userId: string, dailyLimit: number = 20): Pro
   const collection = getUserLimitsCollection(db)
   const usersCollection = db.collection('users')
 
+  console.log(`🟢 activateUser 시작 - userId: ${userId}, dailyLimit: ${dailyLimit}`)
+
   // 새 레코드를 생성하는 경우 users 컬렉션에서 이메일 정보 조회
   let userEmail = 'unknown@example.com'
   try {
@@ -319,13 +354,14 @@ export async function activateUser(userId: string, dailyLimit: number = 20): Pro
     // Ignore
   }
 
-  return collection.findOneAndUpdate(
-    createUserFilter(userId),
+  const filter = createUserFilter(userId)
+  const result = await collection.findOneAndUpdate(
+    filter,
     {
       $set: {
         userId,
         email: userEmail,
-        isDeactivated: false,
+        isDeactivated: false,  // 활성화: false로 명시적 설정
         dailyLimit,
         updatedAt: new Date(),
       },
@@ -338,4 +374,11 @@ export async function activateUser(userId: string, dailyLimit: number = 20): Pro
       upsert: true
     }
   )
+
+  console.log(`✅ activateUser 결과:`, {
+    isDeactivated: result?.isDeactivated,
+    dailyLimit: result?.dailyLimit,
+  })
+
+  return result
 }
