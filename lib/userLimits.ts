@@ -52,15 +52,18 @@ export async function getAllUsers(): Promise<UserLimit[]> {
   const resultPromises = users
     .filter((user: any) => user.userId && user.email) // userId 필드가 있는 사용자만 필터링 (메인의 users 컬렉션 구조)
     .map(async (user: any) => {
-      const userId = user.userId // 메인에서 저장된 "provider:providerAccountId" 형식
-      const limit = userLimitsMap.get(userId)
+      // user.userId는 "kakao:4539914115" 형식
+      // user_limits에서 찾을 때는 email로 검색하는 것이 가장 안전함
+      const userEmail = user.email
+      const limit = userLimits.find((l: any) => l.email === userEmail)
 
       if (limit) {
         // user_limits에 있으면 해당 정보 사용
+        console.log(`  ✅ user_limits에서 찾음: ${userEmail} (isDeactivated: ${limit.isDeactivated})`)
         return {
           _id: user._id?.toString(),
-          userId: userId,
-          email: user.email,
+          userId: limit.userId,
+          email: limit.email,
           name: user.name,
           image: user.image,
           dailyLimit: limit.dailyLimit,
@@ -70,8 +73,8 @@ export async function getAllUsers(): Promise<UserLimit[]> {
         }
       } else {
         // user_limits에 없으면 자동으로 생성
-        console.log(`  ⚠️  user_limits에 없음 - 자동 생성: ${userId}`)
-        const newLimit = await updateUserLimit(userId, 15, user.email)
+        console.log(`  ⚠️  user_limits에 없음 - 자동 생성: ${user.userId}`)
+        const newLimit = await updateUserLimit(user.userId, 15, user.email)
         if (newLimit) {
           return {
             _id: user._id?.toString(),
@@ -89,7 +92,7 @@ export async function getAllUsers(): Promise<UserLimit[]> {
         // 생성 실패 시 기본값 반환
         return {
           _id: user._id?.toString(),
-          userId: userId,
+          userId: user.userId,
           email: user.email,
           name: user.name,
           image: user.image,
