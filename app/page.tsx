@@ -144,7 +144,7 @@ export default function AdminPage() {
       setUsers(
         users.map((u) =>
           u._id === user._id
-            ? { ...u, isDeactivated: true, dailyLimit: 0 }
+            ? { ...u, isDeactivated: true }  // 🔑 dailyLimit 유지 (0으로 변경하지 않음)
             : u
         )
       )
@@ -185,7 +185,7 @@ export default function AdminPage() {
       setUsers(
         users.map((u) =>
           u._id === user._id
-            ? { ...u, isDeactivated: false, dailyLimit: 20 }
+            ? { ...u, isDeactivated: false }  // 🔑 서버에서 반환된 dailyLimit 유지
             : u
         )
       )

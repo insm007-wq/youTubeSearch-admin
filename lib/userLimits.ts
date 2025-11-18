@@ -340,6 +340,10 @@ export async function deactivateUser(userId: string): Promise<UserLimit | null> 
   const filter = createUserFilter(userId)
   console.log(`📍 검색 필터: ${JSON.stringify(filter)}`)
 
+  // 기존 dailyLimit 보존
+  const existingRecord = await collection.findOne(filter)
+  const currentDailyLimit = existingRecord?.dailyLimit ?? 15
+
   const result = await collection.findOneAndUpdate(
     filter,
     {
@@ -347,7 +351,7 @@ export async function deactivateUser(userId: string): Promise<UserLimit | null> 
         userId,
         email: userEmail,
         isDeactivated: true,
-        dailyLimit: 0,
+        dailyLimit: currentDailyLimit,  // 🔑 기존 dailyLimit 유지
         updatedAt: new Date(),
       },
       $setOnInsert: {
@@ -401,6 +405,11 @@ export async function activateUser(userId: string, dailyLimit: number = 20): Pro
   }
 
   const filter = createUserFilter(userId)
+
+  // 기존 dailyLimit 보존 (비활성화 전 값으로 복원)
+  const existingRecord = await collection.findOne(filter)
+  const finalDailyLimit = existingRecord?.dailyLimit ?? dailyLimit
+
   const result = await collection.findOneAndUpdate(
     filter,
     {
@@ -408,7 +417,7 @@ export async function activateUser(userId: string, dailyLimit: number = 20): Pro
         userId,
         email: userEmail,
         isDeactivated: false,  // 활성화: false로 명시적 설정
-        dailyLimit,
+        dailyLimit: finalDailyLimit,  // 🔑 기존 dailyLimit 유지
         updatedAt: new Date(),
       },
       $setOnInsert: {
