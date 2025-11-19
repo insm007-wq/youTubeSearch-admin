@@ -8,6 +8,7 @@ interface UserLimit {
   name?: string | null
   image?: string | null
   dailyLimit: number
+  remainingLimit?: number
   isDeactivated: boolean
   createdAt: Date
   updatedAt: Date
@@ -260,7 +261,8 @@ function createUserFilter(userId: string) {
 export async function updateUserLimit(
   userId: string,
   dailyLimit: number,
-  userEmail?: string
+  userEmail?: string,
+  remainingLimit?: number
 ): Promise<UserLimit | null> {
   const db = await getDb()
   const collection = getUserLimitsCollection(db)
@@ -284,7 +286,7 @@ export async function updateUserLimit(
     }
   }
 
-  console.log(`📝 updateUserLimit 시작 - userId: ${userId}, dailyLimit: ${dailyLimit}, email: ${email}`)
+  console.log(`📝 updateUserLimit 시작 - userId: ${userId}, dailyLimit: ${dailyLimit}, remainingLimit: ${remainingLimit}, email: ${email}`)
 
   const filter = createUserFilter(userId)
   const existingRecord = await collection.findOne(filter)
@@ -292,16 +294,24 @@ export async function updateUserLimit(
 
   console.log(`   ├─ 기존 isDeactivated: ${currentIsDeactivated}`)
 
+  const updateData: any = {
+    userId,
+    email,
+    dailyLimit,
+    isDeactivated: currentIsDeactivated,  // 🔑 기존 상태 유지 (false로 리셋하지 않음)
+    updatedAt: new Date(),
+  }
+
+  // remainingLimit이 제공되면 저장
+  if (remainingLimit !== undefined) {
+    updateData.remainingLimit = remainingLimit
+    console.log(`   ├─ remainingLimit 설정: ${remainingLimit}`)
+  }
+
   const result = await collection.findOneAndUpdate(
     filter,
     {
-      $set: {
-        userId,
-        email,
-        dailyLimit,
-        isDeactivated: currentIsDeactivated,  // 🔑 기존 상태 유지 (false로 리셋하지 않음)
-        updatedAt: new Date(),
-      },
+      $set: updateData,
       $setOnInsert: {
         createdAt: new Date(),
       },

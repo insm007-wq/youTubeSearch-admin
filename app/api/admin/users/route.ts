@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
           name: user.name || null,
           image: user.image || null,
           dailyLimit: user.dailyLimit,
+          remainingLimit: user.remainingLimit,  // 👈 remainingLimit 추가
           isDeactivated: user.isDeactivated,
           remaining,
           createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : user.createdAt,

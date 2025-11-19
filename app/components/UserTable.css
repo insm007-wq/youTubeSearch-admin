@@ -75,6 +75,36 @@
   font-size: 13px;
 }
 
+.clickable-badge {
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.quota-badge.clickable-badge {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.quota-badge.clickable-badge:hover {
+  background-color: #bbdefb;
+  transform: scale(1.05);
+}
+
+.remaining-badge.clickable-badge {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.remaining-badge.clickable-badge:hover {
+  background-color: #e1bee7;
+  transform: scale(1.05);
+}
+
 .status-badge {
   display: inline-block;
   padding: 4px 12px;
@@ -129,6 +159,10 @@
 
 .activate-btn:hover {
   color: #388e3c;
+}
+
+.reset-btn:hover {
+  color: #ff9800;
 }
 
 .empty-state {

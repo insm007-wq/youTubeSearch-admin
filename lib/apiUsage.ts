@@ -88,12 +88,18 @@ export async function checkApiUsage(
       date: today
     })
 
-    // user_limits에서 사용자의 할당량 조회
+    // user_limits에서 사용자의 할당량 및 잔여량 조회
     let dailyLimit = DAILY_LIMIT
+    let remainingLimit: number | undefined
     try {
       const userLimit = await getUserById(userId)
-      if (userLimit && userLimit.dailyLimit) {
-        dailyLimit = userLimit.dailyLimit
+      if (userLimit) {
+        if (userLimit.dailyLimit) {
+          dailyLimit = userLimit.dailyLimit
+        }
+        if (userLimit.remainingLimit !== undefined) {
+          remainingLimit = userLimit.remainingLimit
+        }
       }
     } catch (error) {
       // user_limits 조회 실패 시 기본값 사용
@@ -101,8 +107,16 @@ export async function checkApiUsage(
     }
 
     const used = usageRecord?.count ?? 0
-    const remaining = Math.max(0, dailyLimit - used)
-    const allowed = used < dailyLimit
+
+    // remainingLimit이 설정되어 있으면 그 값을 절대값으로 사용 (사용량과 무관)
+    // remainingLimit이 없으면 dailyLimit - used로 계산
+    const remaining = remainingLimit !== undefined
+      ? remainingLimit
+      : Math.max(0, dailyLimit - used)
+
+    // allowed 판단: remainingLimit이 있으면 그 값 기준, 없으면 dailyLimit 기준
+    const limit = remainingLimit !== undefined ? remainingLimit : dailyLimit
+    const allowed = used < limit
 
     // 내일 자정의 시간 계산
     const tomorrow = new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
@@ -112,7 +126,7 @@ export async function checkApiUsage(
       allowed,
       used,
       remaining,
-      limit: dailyLimit,
+      limit,
       resetTime
     }
   } catch (error) {
@@ -167,12 +181,18 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
       }
     )
 
-    // user_limits에서 사용자의 할당량 조회
+    // user_limits에서 사용자의 할당량 및 잔여량 조회
     let dailyLimit = DAILY_LIMIT
+    let remainingLimit: number | undefined
     try {
       const userLimit = await getUserById(userId)
-      if (userLimit && userLimit.dailyLimit) {
-        dailyLimit = userLimit.dailyLimit
+      if (userLimit) {
+        if (userLimit.dailyLimit) {
+          dailyLimit = userLimit.dailyLimit
+        }
+        if (userLimit.remainingLimit !== undefined) {
+          remainingLimit = userLimit.remainingLimit
+        }
       }
     } catch (error) {
       // user_limits 조회 실패 시 기본값 사용
@@ -180,8 +200,16 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
     }
 
     const updatedCount = result?.count ?? 1
-    const remaining = Math.max(0, dailyLimit - updatedCount)
-    const allowed = updatedCount < dailyLimit
+
+    // remainingLimit이 설정되어 있으면 그 값을 절대값으로 사용 (사용량과 무관)
+    // remainingLimit이 없으면 dailyLimit - updatedCount로 계산
+    const remaining = remainingLimit !== undefined
+      ? remainingLimit
+      : Math.max(0, dailyLimit - updatedCount)
+
+    // allowed 판단: remainingLimit이 있으면 그 값 기준, 없으면 dailyLimit 기준
+    const limit = remainingLimit !== undefined ? remainingLimit : dailyLimit
+    const allowed = updatedCount < limit
 
     // 내일 자정의 시간 계산
     const tomorrow = new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
@@ -191,7 +219,7 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
       allowed,
       used: updatedCount,
       remaining,
-      limit: dailyLimit,
+      limit,
       resetTime
     }
   } catch (error) {
@@ -259,12 +287,37 @@ export async function getTodayUsage(userId: string) {
       date: today
     })
 
+    // user_limits에서 사용자의 할당량 및 잔여량 조회
+    let dailyLimit = DAILY_LIMIT
+    let remainingLimit: number | undefined
+    try {
+      const userLimit = await getUserById(userId)
+      if (userLimit) {
+        if (userLimit.dailyLimit) {
+          dailyLimit = userLimit.dailyLimit
+        }
+        if (userLimit.remainingLimit !== undefined) {
+          remainingLimit = userLimit.remainingLimit
+        }
+      }
+    } catch (error) {
+      // user_limits 조회 실패 시 기본값 사용
+      console.warn(`⚠️ user_limits 조회 실패 (userId: ${userId}), 기본값 ${DAILY_LIMIT} 사용`)
+    }
+
     const used = record?.count ?? 0
+
+    // remainingLimit이 설정되어 있으면 그 값을 절대값으로 사용 (사용량과 무관)
+    // remainingLimit이 없으면 dailyLimit - used로 계산
+    const remaining = remainingLimit !== undefined
+      ? remainingLimit
+      : Math.max(0, dailyLimit - used)
 
     return {
       used,
-      remaining: Math.max(0, DAILY_LIMIT - used),
-      limit: DAILY_LIMIT
+      remaining,
+      limit: dailyLimit,
+      remainingLimit
     }
   } catch (error) {
     console.error('❌ 오늘 사용량 조회 에러:', {

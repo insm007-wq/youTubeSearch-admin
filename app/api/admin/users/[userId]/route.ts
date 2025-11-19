@@ -40,10 +40,10 @@ export async function PATCH(
   try {
     const _id = (await params).userId
     const body = await request.json()
-    const { dailyLimit, action } = body
+    const { dailyLimit, action, remainingLimit } = body
 
     console.log(`\n🔵 PATCH /api/admin/users/[${_id}]`)
-    console.log(`📥 요청 body:`, { dailyLimit, action })
+    console.log(`📥 요청 body:`, { dailyLimit, action, remainingLimit })
 
     const user = await getUserById(_id)
 
@@ -82,10 +82,22 @@ export async function PATCH(
       if (result) updatedUser = result
       log = await logUserActivation(actualUserId, user.email, limit)
       console.log(`✅ 활성화 완료 - isDeactivated: ${result?.isDeactivated}`)
+    } else if (action === 'reset_remaining') {
+      // remainingLimit을 dailyLimit으로 초기화
+      console.log(`🔄 잔여량 초기화 - actualUserId: ${actualUserId}, remainingLimit: ${user.dailyLimit}로 설정`)
+      const result = await updateUserLimit(actualUserId, user.dailyLimit, user.email, user.dailyLimit)
+      if (result) updatedUser = result
+      console.log(`✅ 잔여량 초기화 완료 - remainingLimit: ${result?.remainingLimit}`)
+    } else if (remainingLimit !== undefined && dailyLimit === undefined) {
+      // remainingLimit만 수정하는 경우
+      console.log(`📝 잔여량 수정 - actualUserId: ${actualUserId}, remainingLimit: ${remainingLimit}`)
+      const result = await updateUserLimit(actualUserId, user.dailyLimit, user.email, remainingLimit)
+      if (result) updatedUser = result
     } else if (dailyLimit !== undefined) {
       const previousLimit = user.dailyLimit
-      console.log(`📝 할당량 수정 - actualUserId: ${actualUserId}, ${previousLimit} → ${dailyLimit}`)
-      const result = await updateUserLimit(actualUserId, dailyLimit)
+      // dailyLimit만 수정하는 경우: 기존 remainingLimit 보존
+      console.log(`📝 할당량 수정 - actualUserId: ${actualUserId}, ${previousLimit} → ${dailyLimit}, 기존 remainingLimit 보존: ${user.remainingLimit}`)
+      const result = await updateUserLimit(actualUserId, dailyLimit, user.email, user.remainingLimit)
       if (result) updatedUser = result
       log = await logUserLimitChange(actualUserId, user.email, previousLimit, dailyLimit)
     }
@@ -94,7 +106,8 @@ export async function PATCH(
       success: true,
       data: {
         ...updatedUser,
-        _id: updatedUser?._id?.toString(),
+        _id: user.email,  // 이메일을 프라이머리 키로 사용
+        remainingLimit: updatedUser?.remainingLimit,  // remainingLimit 명시적으로 포함
       },
       log,
     })

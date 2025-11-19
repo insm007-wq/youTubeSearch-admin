@@ -1,18 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { Edit2, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Edit2, Trash2, ToggleLeft, ToggleRight, RefreshCw } from 'lucide-react'
 import { AdminUser } from '@/types/user'
 import './UserTable.css'
 
 interface UserTableProps {
   users: AdminUser[]
   onEdit: (user: AdminUser) => void
+  onEditDailyLimit: (user: AdminUser) => void
+  onResetRemaining: (user: AdminUser) => void
   onDeactivate: (user: AdminUser) => void
   onActivate: (user: AdminUser) => void
 }
 
-export default function UserTable({ users, onEdit, onDeactivate, onActivate }: UserTableProps) {
+export default function UserTable({ users, onEdit, onEditDailyLimit, onResetRemaining, onDeactivate, onActivate }: UserTableProps) {
   const formatDate = (dateValue?: string | Date) => {
     if (!dateValue) return '-'
     try {
@@ -53,10 +55,22 @@ export default function UserTable({ users, onEdit, onDeactivate, onActivate }: U
               <td className="name-cell">{user.name || '-'}</td>
               <td className="user-id">{user.userId || '-'}</td>
               <td>
-                <span className="quota-badge">{user.dailyLimit}</span>
+                <button
+                  className="quota-badge clickable-badge"
+                  onClick={() => onEditDailyLimit(user)}
+                  title="클릭하여 일일 할당량 수정"
+                >
+                  {user.dailyLimit}
+                </button>
               </td>
               <td>
-                <span className="remaining-badge">{user.remaining ?? user.dailyLimit}</span>
+                <button
+                  className="remaining-badge clickable-badge"
+                  onClick={() => onResetRemaining(user)}
+                  title="클릭하여 잔여량 초기화"
+                >
+                  {(user as any).remainingLimit !== undefined ? (user as any).remainingLimit : (user as any).remaining}
+                </button>
               </td>
               <td>
                 <span className={`status-badge ${user.isDeactivated ? 'deactivated' : 'active'}`}>
@@ -72,6 +86,13 @@ export default function UserTable({ users, onEdit, onDeactivate, onActivate }: U
                   title="수정"
                 >
                   <Edit2 size={16} />
+                </button>
+                <button
+                  className="action-btn reset-btn"
+                  onClick={() => onResetRemaining(user)}
+                  title="잔여량 초기화"
+                >
+                  <RefreshCw size={16} />
                 </button>
                 {user.isDeactivated ? (
                   <button

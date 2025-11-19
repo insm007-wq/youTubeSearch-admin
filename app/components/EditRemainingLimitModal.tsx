@@ -5,22 +5,21 @@ import { X } from 'lucide-react'
 import { AdminUser } from '@/types/user'
 import './EditUserModal.css'
 
-interface EditUserModalProps {
+interface EditRemainingLimitModalProps {
   user: AdminUser | null
   isOpen: boolean
   onClose: () => void
-  onSave: (userId: string, dailyLimit: number, remainingLimit?: number) => Promise<void>
+  onSave: (userId: string, remainingLimit: number) => Promise<void>
   isLoading?: boolean
 }
 
-export default function EditUserModal({
+export default function EditRemainingLimitModal({
   user,
   isOpen,
   onClose,
   onSave,
   isLoading = false,
-}: EditUserModalProps) {
-  const [newLimit, setNewLimit] = useState('')
+}: EditRemainingLimitModalProps) {
   const [newRemaining, setNewRemaining] = useState('')
   const [error, setError] = useState('')
 
@@ -29,19 +28,10 @@ export default function EditUserModal({
   const handleSave = async () => {
     setError('')
 
-    const limit = parseInt(newLimit)
-    if (isNaN(limit) || limit < 0) {
-      setError('올바른 할당량을 입력해주세요 (0 이상)')
+    const remaining = parseInt(newRemaining)
+    if (isNaN(remaining) || remaining < 0) {
+      setError('올바른 잔여량을 입력해주세요 (0 이상)')
       return
-    }
-
-    let remaining: number | undefined
-    if (newRemaining) {
-      remaining = parseInt(newRemaining)
-      if (isNaN(remaining) || remaining < 0) {
-        setError('올바른 잔여량을 입력해주세요 (0 이상)')
-        return
-      }
     }
 
     try {
@@ -50,25 +40,28 @@ export default function EditUserModal({
         setError('사용자 ID를 찾을 수 없습니다')
         return
       }
-      await onSave(userId, limit, remaining)
+      await onSave(userId, remaining)
       onClose()
-      setNewLimit('')
       setNewRemaining('')
     } catch (err) {
-      setError('저장에 실패했습니다')
+      const errorMsg = err instanceof Error ? err.message : '저장에 실패했습니다'
+      setError(errorMsg)
+      console.error('❌ 잔여량 저장 오류:', err)
     }
   }
 
-  const handleOpenChange = (newValue: number) => {
-    setNewLimit(newValue.toString())
+  const handlePresetChange = (newValue: number) => {
+    setNewRemaining(newValue.toString())
   }
+
+  const currentRemaining = (user as any).remainingLimit !== undefined ? (user as any).remainingLimit : '-'
 
   return (
     <>
       <div className="modal-overlay" onClick={onClose} />
       <div className="modal-container">
         <div className="modal-header">
-          <h2>사용자 할당량 수정</h2>
+          <h2>잔여량 수정</h2>
           <button className="modal-close-btn" onClick={onClose}>
             <X size={24} />
           </button>
@@ -85,29 +78,17 @@ export default function EditUserModal({
               <span className="user-id">{user.userId}</span>
             </div>
             <div className="info-row">
-              <label>현재 할당량:</label>
+              <label>일일 할당량:</label>
               <span>{user.dailyLimit}</span>
             </div>
             <div className="info-row">
               <label>현재 잔여량:</label>
-              <span>{(user as any).remainingLimit !== undefined ? (user as any).remainingLimit : '-'}</span>
+              <span>{currentRemaining}</span>
             </div>
           </div>
 
           <div className="modal-form">
-            <label htmlFor="limit">새 할당량:</label>
-            <input
-              id="limit"
-              type="number"
-              min="0"
-              max="999"
-              value={newLimit}
-              onChange={(e) => setNewLimit(e.target.value)}
-              placeholder="새 할당량 입력"
-              disabled={isLoading}
-            />
-
-            <label htmlFor="remaining" style={{ marginTop: '16px' }}>새 잔여량: (선택사항)</label>
+            <label htmlFor="remaining">새 잔여량:</label>
             <input
               id="remaining"
               type="number"
@@ -115,7 +96,7 @@ export default function EditUserModal({
               max="999"
               value={newRemaining}
               onChange={(e) => setNewRemaining(e.target.value)}
-              placeholder="새 잔여량 입력 (비워두면 유지)"
+              placeholder="새 잔여량 입력"
               disabled={isLoading}
             />
 
@@ -125,7 +106,7 @@ export default function EditUserModal({
               <button
                 type="button"
                 className="preset-btn"
-                onClick={() => handleOpenChange(5)}
+                onClick={() => handlePresetChange(5)}
                 disabled={isLoading}
               >
                 5회
@@ -133,7 +114,7 @@ export default function EditUserModal({
               <button
                 type="button"
                 className="preset-btn"
-                onClick={() => handleOpenChange(10)}
+                onClick={() => handlePresetChange(10)}
                 disabled={isLoading}
               >
                 10회
@@ -141,7 +122,7 @@ export default function EditUserModal({
               <button
                 type="button"
                 className="preset-btn"
-                onClick={() => handleOpenChange(20)}
+                onClick={() => handlePresetChange(20)}
                 disabled={isLoading}
               >
                 20회
@@ -149,7 +130,7 @@ export default function EditUserModal({
               <button
                 type="button"
                 className="preset-btn"
-                onClick={() => handleOpenChange(50)}
+                onClick={() => handlePresetChange(50)}
                 disabled={isLoading}
               >
                 50회
@@ -165,7 +146,7 @@ export default function EditUserModal({
           <button
             className="btn-save"
             onClick={handleSave}
-            disabled={isLoading || !newLimit}
+            disabled={isLoading || !newRemaining}
           >
             {isLoading ? '저장 중...' : '저장'}
           </button>

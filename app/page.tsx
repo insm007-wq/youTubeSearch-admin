@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { AlertCircle } from 'lucide-react'
 import SearchBar from './components/SearchBar'
 import UserTable from './components/UserTable'
-import EditUserModal from './components/EditUserModal'
+import EditDailyLimitModal from './components/EditDailyLimitModal'
 import { AdminUser } from '@/types/user'
 import './page.css'
 
@@ -17,6 +17,7 @@ export default function AdminPage() {
   const [error, setError] = useState('')
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showDailyLimitModal, setShowDailyLimitModal] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   // 초기 사용자 목록 로드
@@ -70,11 +71,15 @@ export default function AdminPage() {
     setShowEditModal(true)
   }
 
-  const handleSaveLimit = async (userId: string, newLimit: number) => {
+  const handleEditDailyLimit = (user: User) => {
+    setEditingUser(user)
+    setShowDailyLimitModal(true)
+  }
+
+  const handleSaveDailyLimit = async (userId: string, newLimit: number) => {
     setIsSaving(true)
 
     try {
-      // userId is actually the _id from MongoDB
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'PATCH',
         headers: {
@@ -89,9 +94,99 @@ export default function AdminPage() {
         throw new Error(data.error || '저장에 실패했습니다')
       }
 
-      // 사용자 목록 업데이트
+      // 사용자 목록 업데이트 (이메일 기반)
       setUsers(
-        users.map((u) => (u._id === data.data._id ? { ...u, dailyLimit: data.data.dailyLimit } : u))
+        users.map((u) => (
+          u.email === data.data._id
+            ? { ...u, dailyLimit: data.data.dailyLimit }
+            : u
+        ))
+      )
+
+      setShowDailyLimitModal(false)
+      setEditingUser(null)
+    } catch (err) {
+      throw err
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleResetRemaining = async (user: User) => {
+    setIsLoading(true)
+
+    try {
+      console.log(`🔄 잔여량 초기화 요청:`, { email: user.email, dailyLimit: user.dailyLimit })
+
+      const response = await fetch(`/api/admin/users/${user._id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'reset_remaining' }),
+      })
+
+      const data = await response.json()
+      console.log(`📥 잔여량 초기화 응답:`, data)
+
+      if (!data.success) {
+        throw new Error(data.error || '초기화에 실패했습니다')
+      }
+
+      // 사용자 목록 업데이트 (이메일 기반)
+      setUsers(
+        users.map((u) =>
+          u.email === user.email
+            ? { ...u, remainingLimit: data.data.remainingLimit }
+            : u
+        )
+      )
+
+      console.log(`✅ 잔여량 초기화 완료:`, { email: user.email, remainingLimit: data.data.remainingLimit })
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
+      console.error(`❌ 잔여량 초기화 오류:`, err)
+      setError(errorMsg)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSaveLimit = async (userId: string, newLimit: number, newRemaining?: number) => {
+    setIsSaving(true)
+
+    try {
+      // userId is actually the _id from MongoDB
+      const requestBody: any = { dailyLimit: newLimit }
+      if (newRemaining !== undefined) {
+        requestBody.remainingLimit = newRemaining
+      }
+
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.error || '저장에 실패했습니다')
+      }
+
+      // 사용자 목록 업데이트 (이메일 기반)
+      setUsers(
+        users.map((u) => (
+          u.email === data.data._id
+            ? {
+                ...u,
+                dailyLimit: data.data.dailyLimit,
+                ...(data.data.remainingLimit !== undefined && { remainingLimit: data.data.remainingLimit }),
+              }
+            : u
+        ))
       )
 
       setShowEditModal(false)
@@ -139,7 +234,7 @@ export default function AdminPage() {
 
       setUsers(
         users.map((u) =>
-          u._id === user._id
+          u.email === user.email
             ? { ...u, isDeactivated: true }  // 🔑 dailyLimit 유지 (0으로 변경하지 않음)
             : u
         )
@@ -176,7 +271,7 @@ export default function AdminPage() {
 
       setUsers(
         users.map((u) =>
-          u._id === user._id
+          u.email === user.email
             ? { ...u, isDeactivated: false }  // 🔑 서버에서 반환된 dailyLimit 유지
             : u
         )
@@ -232,19 +327,21 @@ export default function AdminPage() {
         <UserTable
           users={users}
           onEdit={handleEditClick}
+          onEditDailyLimit={handleEditDailyLimit}
+          onResetRemaining={handleResetRemaining}
           onDeactivate={handleDeactivate}
           onActivate={handleActivate}
         />
       </div>
 
-      <EditUserModal
+      <EditDailyLimitModal
         user={editingUser}
-        isOpen={showEditModal}
+        isOpen={showDailyLimitModal}
         onClose={() => {
-          setShowEditModal(false)
+          setShowDailyLimitModal(false)
           setEditingUser(null)
         }}
-        onSave={handleSaveLimit}
+        onSave={handleSaveDailyLimit}
         isLoading={isSaving}
       />
     </div>

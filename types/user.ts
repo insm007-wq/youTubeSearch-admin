@@ -5,6 +5,7 @@ export interface AdminUser {
   name?: string | null
   image?: string | null
   dailyLimit: number
+  remainingLimit?: number
   isDeactivated: boolean
   createdAt?: string | Date
   updatedAt?: string | Date
