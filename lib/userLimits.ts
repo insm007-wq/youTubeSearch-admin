@@ -289,7 +289,11 @@ export async function updateUserLimit(
   console.log(`📝 updateUserLimit 시작 - userId: ${userId}, dailyLimit: ${dailyLimit}, remainingLimit: ${remainingLimit}, email: ${email}`)
 
   const filter = createUserFilter(userId)
+  console.log(`   ├─ 검색 필터: ${JSON.stringify(filter)}`)
+
   const existingRecord = await collection.findOne(filter)
+  console.log(`   ├─ 기존 레코드 찾음: ${!!existingRecord}`)
+
   const currentIsDeactivated = existingRecord?.isDeactivated ?? false
 
   console.log(`   ├─ 기존 isDeactivated: ${currentIsDeactivated}`)
@@ -308,6 +312,8 @@ export async function updateUserLimit(
     console.log(`   ├─ remainingLimit 설정: ${remainingLimit}`)
   }
 
+  console.log(`   ├─ 업데이트 데이터:`, updateData)
+
   const result = await collection.findOneAndUpdate(
     filter,
     {
@@ -322,7 +328,14 @@ export async function updateUserLimit(
     }
   )
 
-  console.log(`   ├─ 저장된 isDeactivated: ${result?.isDeactivated}`)
+  console.log(`   ├─ 저장 후 결과:`)
+  console.log(`   │  ├─ _id: ${result?._id}`)
+  console.log(`   │  ├─ email: ${result?.email}`)
+  console.log(`   │  ├─ userId: ${result?.userId}`)
+  console.log(`   │  ├─ dailyLimit: ${result?.dailyLimit}`)
+  console.log(`   │  ├─ remainingLimit: ${result?.remainingLimit}`)
+  console.log(`   │  └─ isDeactivated: ${result?.isDeactivated}`)
+
   return result
 }
 
