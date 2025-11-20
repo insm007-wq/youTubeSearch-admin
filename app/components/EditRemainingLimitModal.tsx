@@ -102,10 +102,6 @@ export default function EditRemainingLimitModal({
                 <p className="font-medium break-all text-xs">{user.email}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">User ID</p>
-                <p className="font-mono text-xs break-all">{user.userId || '-'}</p>
-              </div>
-              <div>
                 <p className="text-muted-foreground">일일 할당량</p>
                 <p className="font-medium text-sm">{user.dailyLimit}</p>
               </div>

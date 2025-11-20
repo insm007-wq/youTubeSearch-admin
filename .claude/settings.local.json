@@ -58,7 +58,9 @@
       "Bash(npx shadcn-ui@latest init:*)",
       "Bash(npx shadcn@latest init -y)",
       "Bash(npx shadcn@latest add:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(node scripts/check-users.mjs:*)",
+      "Bash(MONGODB_URI=\"mongodb+srv://insm007_db_user:8FSMNz7XdNLMqD8Y@youtube-search-cluster.wo6t609.mongodb.net/youtube-search?retryWrites=true&w=majority\" node:*)"
     ],
     "deny": [],
     "ask": []

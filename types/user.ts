@@ -6,6 +6,7 @@ export interface AdminUser {
   dailyLimit: number
   remainingLimit: number
   isActive: boolean
+  provider?: string
   createdAt?: string | Date
   updatedAt?: string | Date
 }

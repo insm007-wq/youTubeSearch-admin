@@ -98,13 +98,9 @@ export default function EditDailyLimitModal({
           {/* 사용자 정보 */}
           <div className="space-y-2 bg-muted p-3 rounded-lg">
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
+              <div className="col-span-2">
                 <p className="text-muted-foreground">이메일</p>
                 <p className="font-medium break-all text-xs">{user.email}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">User ID</p>
-                <p className="font-mono text-xs break-all">{user.userId || '-'}</p>
               </div>
               <div className="col-span-2">
                 <p className="text-muted-foreground">현재 할당량</p>
