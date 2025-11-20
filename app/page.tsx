@@ -1,14 +1,26 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Users, UserCheck, UserX, Zap, Settings2 } from 'lucide-react'
 import SearchBar from './components/SearchBar'
 import UserTable from './components/UserTable'
+import EditUserModal from './components/EditUserModal'
 import EditDailyLimitModal from './components/EditDailyLimitModal'
+import EditRemainingLimitModal from './components/EditRemainingLimitModal'
+import BulkUpdateLimitModal from './components/BulkUpdateLimitModal'
 import { AdminUser } from '@/types/user'
-import './page.css'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 
 type User = AdminUser
+
+interface StatCard {
+  icon: React.ReactNode
+  label: string
+  value: number | string
+  color: string
+}
 
 export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -18,6 +30,8 @@ export default function AdminPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDailyLimitModal, setShowDailyLimitModal] = useState(false)
+  const [showRemainingModal, setShowRemainingModal] = useState(false)
+  const [showBulkModal, setShowBulkModal] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   // 초기 사용자 목록 로드
@@ -39,7 +53,9 @@ export default function AdminPage() {
 
       setUsers(data.data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '오류가 발생했습니다')
+      const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
+      setError(errorMsg)
+      toast.error('사용자 로드 실패', { description: errorMsg })
     } finally {
       setIsLoading(false)
     }
@@ -59,8 +75,13 @@ export default function AdminPage() {
       }
 
       setUsers(data.data)
+      if (query) {
+        toast.success(`${data.data.length}개의 사용자를 찾았습니다`)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '오류가 발생했습니다')
+      const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
+      setError(errorMsg)
+      toast.error('검색 실패', { description: errorMsg })
     } finally {
       setIsLoading(false)
     }
@@ -76,36 +97,87 @@ export default function AdminPage() {
     setShowDailyLimitModal(true)
   }
 
+  const handleEditRemaining = (user: User) => {
+    setEditingUser(user)
+    setShowRemainingModal(true)
+  }
+
   const handleSaveDailyLimit = async (userId: string, newLimit: number) => {
     setIsSaving(true)
-
+    console.log(`📝 handleSaveDailyLimit 시작 - userId: ${userId}, newLimit: ${newLimit}`)
     try {
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dailyLimit: newLimit }),
       })
 
       const data = await response.json()
+      console.log(`📥 응답:`, data)
 
       if (!data.success) {
         throw new Error(data.error || '저장에 실패했습니다')
       }
 
-      // 사용자 목록 업데이트 (이메일 기반)
+      // 응답된 이메일 기준으로 업데이트
+      const updatedEmail = data.data.email
+      console.log(`🔄 사용자 업데이트 - 이메일: ${updatedEmail}, dailyLimit: ${data.data.dailyLimit}`)
+
       setUsers(
-        users.map((u) => (
-          u.email === data.data._id
-            ? { ...u, dailyLimit: data.data.dailyLimit }
-            : u
-        ))
+        users.map((u) => {
+          if (u.email === updatedEmail) {
+            console.log(`✅ 일치함: ${u.email}`)
+            return { ...u, dailyLimit: data.data.dailyLimit }
+          }
+          return u
+        })
       )
 
-      setShowDailyLimitModal(false)
-      setEditingUser(null)
+      toast.success('할당량이 업데이트되었습니다')
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
+      console.error(`❌ 에러:`, err)
+      toast.error('저장 실패', { description: errorMsg })
+      throw err
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSaveRemaining = async (userId: string, newRemaining: number) => {
+    setIsSaving(true)
+    console.log(`📝 handleSaveRemaining 시작 - userId: ${userId}, newRemaining: ${newRemaining}`)
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ remainingLimit: newRemaining }),
+      })
+
+      const data = await response.json()
+      console.log(`📥 응답:`, data)
+
+      if (!data.success) {
+        throw new Error(data.error || '저장에 실패했습니다')
+      }
+
+      const updatedEmail = data.data.email
+      console.log(`🔄 사용자 업데이트 - 이메일: ${updatedEmail}, remainingLimit: ${data.data.remainingLimit}`)
+
+      setUsers(
+        users.map((u) => {
+          if (u.email === updatedEmail) {
+            console.log(`✅ 일치함: ${u.email}`)
+            return { ...u, remainingLimit: data.data.remainingLimit }
+          }
+          return u
+        })
+      )
+      toast.success('잔여량이 업데이트되었습니다')
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
+      console.error(`❌ 에러:`, err)
+      toast.error('저장 실패', { description: errorMsg })
       throw err
     } finally {
       setIsSaving(false)
@@ -114,39 +186,28 @@ export default function AdminPage() {
 
   const handleResetRemaining = async (user: User) => {
     setIsLoading(true)
-
     try {
-      console.log(`🔄 잔여량 초기화 요청:`, { email: user.email, dailyLimit: user.dailyLimit })
-
       const response = await fetch(`/api/admin/users/${user._id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reset_remaining' }),
       })
 
       const data = await response.json()
-      console.log(`📥 잔여량 초기화 응답:`, data)
-
       if (!data.success) {
         throw new Error(data.error || '초기화에 실패했습니다')
       }
 
-      // 사용자 목록 업데이트 (이메일 기반)
       setUsers(
         users.map((u) =>
-          u.email === user.email
-            ? { ...u, remainingLimit: data.data.remainingLimit }
-            : u
+          u.email === user.email ? { ...u, remainingLimit: data.data.remainingLimit } : u
         )
       )
-
-      console.log(`✅ 잔여량 초기화 완료:`, { email: user.email, remainingLimit: data.data.remainingLimit })
+      toast.success('잔여량이 초기화되었습니다')
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
-      console.error(`❌ 잔여량 초기화 오류:`, err)
       setError(errorMsg)
+      toast.error('초기화 실패', { description: errorMsg })
     } finally {
       setIsLoading(false)
     }
@@ -154,9 +215,8 @@ export default function AdminPage() {
 
   const handleSaveLimit = async (userId: string, newLimit: number, newRemaining?: number) => {
     setIsSaving(true)
-
+    console.log(`📝 handleSaveLimit 시작 - userId: ${userId}, newLimit: ${newLimit}, newRemaining: ${newRemaining}`)
     try {
-      // userId is actually the _id from MongoDB
       const requestBody: any = { dailyLimit: newLimit }
       if (newRemaining !== undefined) {
         requestBody.remainingLimit = newRemaining
@@ -164,34 +224,40 @@ export default function AdminPage() {
 
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
       })
 
       const data = await response.json()
+      console.log(`📥 응답:`, data)
 
       if (!data.success) {
         throw new Error(data.error || '저장에 실패했습니다')
       }
 
-      // 사용자 목록 업데이트 (이메일 기반)
-      setUsers(
-        users.map((u) => (
-          u.email === data.data._id
-            ? {
-                ...u,
-                dailyLimit: data.data.dailyLimit,
-                ...(data.data.remainingLimit !== undefined && { remainingLimit: data.data.remainingLimit }),
-              }
-            : u
-        ))
-      )
+      const updatedEmail = data.data.email
+      console.log(`🔄 사용자 업데이트 - 이메일: ${updatedEmail}, dailyLimit: ${data.data.dailyLimit}, remainingLimit: ${data.data.remainingLimit}`)
 
-      setShowEditModal(false)
-      setEditingUser(null)
+      setUsers(
+        users.map((u) => {
+          if (u.email === updatedEmail) {
+            console.log(`✅ 일치함: ${u.email}`)
+            return {
+              ...u,
+              dailyLimit: data.data.dailyLimit,
+              ...(data.data.remainingLimit !== undefined && {
+                remainingLimit: data.data.remainingLimit,
+              }),
+            }
+          }
+          return u
+        })
+      )
+      toast.success('사용자 정보가 업데이트되었습니다')
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
+      console.error(`❌ 에러:`, err)
+      toast.error('저장 실패', { description: errorMsg })
       throw err
     } finally {
       setIsSaving(false)
@@ -200,52 +266,24 @@ export default function AdminPage() {
 
   const handleDeactivate = async (user: User) => {
     setIsLoading(true)
-
     try {
-      console.log('🔴 비활성화 요청:', {
-        _id: user._id,
-        userId: user.userId,
-        email: user.email,
-        isDeactivated: user.isDeactivated,
-        url: `/api/admin/users/${user._id}`,
-      })
-
       const response = await fetch(`/api/admin/users/${user._id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deactivate' }),
       })
 
       const data = await response.json()
-
-      console.log('📤 비활성화 API 응답:', data)
-
       if (!data.success) {
         throw new Error(data.error || '비활성화 실패')
       }
 
-      console.log('✅ 비활성화 완료, 상태 업데이트:', {
-        _id: user._id,
-        isDeactivated: data.data?.isDeactivated,
-        dailyLimit: data.data?.dailyLimit,
-      })
-
-      setUsers(
-        users.map((u) =>
-          u.email === user.email
-            ? { ...u, isDeactivated: true }  // 🔑 dailyLimit 유지 (0으로 변경하지 않음)
-            : u
-        )
-      )
-
-      // 자동 새로고침 제거 - 사용자가 수동으로 새로고침 하도록 함
-      // 이렇게 하면 console 로그를 확인할 수 있음
-      console.log('💡 팁: F5를 눌러 새로고침 하면 DB에서 최신 데이터를 조회합니다')
+      setUsers(users.map((u) => (u.email === user.email ? { ...u, isActive: false } : u)))
+      toast.success('사용자가 비활성화되었습니다')
     } catch (err) {
-      setError(err instanceof Error ? err.message : '오류가 발생했습니다')
-      console.error('❌ 비활성화 오류:', err)
+      const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
+      setError(errorMsg)
+      toast.error('비활성화 실패', { description: errorMsg })
     } finally {
       setIsLoading(false)
     }
@@ -253,86 +291,158 @@ export default function AdminPage() {
 
   const handleActivate = async (user: User) => {
     setIsLoading(true)
-
     try {
       const response = await fetch(`/api/admin/users/${user._id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'activate', dailyLimit: 20 }),
       })
 
       const data = await response.json()
-
       if (!data.success) {
         throw new Error(data.error || '활성화 실패')
       }
 
-      setUsers(
-        users.map((u) =>
-          u.email === user.email
-            ? { ...u, isDeactivated: false }  // 🔑 서버에서 반환된 dailyLimit 유지
-            : u
-        )
-      )
+      setUsers(users.map((u) => (u.email === user.email ? { ...u, isActive: true } : u)))
+      toast.success('사용자가 활성화되었습니다')
     } catch (err) {
-      setError(err instanceof Error ? err.message : '오류가 발생했습니다')
+      const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
+      setError(errorMsg)
+      toast.error('활성화 실패', { description: errorMsg })
     } finally {
       setIsLoading(false)
     }
   }
 
+  // 통계 데이터
+  const activeUsers = users.filter((u) => u.isActive).length
+  const deactivatedUsers = users.filter((u) => !u.isActive).length
+  const totalRemaining = users.reduce((sum, u) => sum + (u.remainingLimit ?? 0), 0)
+
+  const stats: StatCard[] = [
+    {
+      icon: <Users className="w-5 h-5" />,
+      label: '전체 사용자',
+      value: users.length,
+      color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+    },
+    {
+      icon: <UserCheck className="w-5 h-5" />,
+      label: '활성 사용자',
+      value: activeUsers,
+      color: 'bg-green-500/10 text-green-600 dark:text-green-400',
+    },
+    {
+      icon: <UserX className="w-5 h-5" />,
+      label: '비활성 사용자',
+      value: deactivatedUsers,
+      color: 'bg-red-500/10 text-red-600 dark:text-red-400',
+    },
+    {
+      icon: <Zap className="w-5 h-5" />,
+      label: '전체 잔여량',
+      value: totalRemaining,
+      color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+    },
+  ]
+
   return (
-    <div className="admin-container">
-      <div className="admin-header">
-        <h1>YouTube 검색 관리자 대시보드</h1>
-        <p className="subtitle">사용자 관리 및 할당량 설정</p>
-      </div>
-
-      <div className="admin-content">
-        {error && (
-          <div className="error-banner">
-            <AlertCircle size={18} />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <SearchBar
-          value={searchQuery}
-          onChange={setSearchQuery}
-          onSearch={handleSearch}
-          isLoading={isLoading}
-        />
-
-        <div className="stats-bar">
-          <div className="stat-item">
-            <span className="stat-label">전체 사용자</span>
-            <span className="stat-value">{users.length}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">활성 사용자</span>
-            <span className="stat-value">{users.filter((u) => !u.isDeactivated).length}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">비활성 사용자</span>
-            <span className="stat-value">{users.filter((u) => u.isDeactivated).length}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">전체 잔여량</span>
-            <span className="stat-value">{users.reduce((sum, u) => sum + (u.remaining ?? 0), 0)}</span>
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/30">
+      {/* 헤더 */}
+      <div className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold tracking-tight">YouTube 검색 관리자</h1>
+            <p className="text-muted-foreground">사용자 관리 및 할당량 설정 대시보드</p>
           </div>
         </div>
-
-        <UserTable
-          users={users}
-          onEdit={handleEditClick}
-          onEditDailyLimit={handleEditDailyLimit}
-          onResetRemaining={handleResetRemaining}
-          onDeactivate={handleDeactivate}
-          onActivate={handleActivate}
-        />
       </div>
+
+      {/* 콘텐츠 */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {/* 에러 배너 */}
+        {error && (
+          <Alert variant="destructive" className="animate-in fade-in">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto"
+              onClick={() => setError('')}
+            >
+              닫기
+            </Button>
+          </Alert>
+        )}
+
+        {/* 검색 바 */}
+        <div className="bg-white dark:bg-zinc-900 p-4 rounded-lg border">
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onSearch={handleSearch}
+            isLoading={isLoading}
+          />
+        </div>
+
+        {/* 통계 카드 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {stats.map((stat, idx) => (
+            <div
+              key={idx}
+              className="bg-white dark:bg-zinc-900 p-4 rounded-lg border hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
+                  <p className="text-2xl font-bold mt-2">{stat.value}</p>
+                </div>
+                <div className={`p-2 rounded-lg ${stat.color}`}>{stat.icon}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* 사용자 테이블 */}
+        <div className="bg-white dark:bg-zinc-900 rounded-lg border">
+          <div className="p-4 border-b flex items-center justify-between">
+            <h2 className="text-lg font-semibold">사용자 목록</h2>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowBulkModal(true)}
+              className="gap-2"
+            >
+              <Settings2 className="w-4 h-4" />
+              일괄 할당량 설정
+            </Button>
+          </div>
+          <div className="p-4">
+            <UserTable
+              users={users}
+              onEdit={handleEditClick}
+              onEditDailyLimit={handleEditDailyLimit}
+              onResetRemaining={handleResetRemaining}
+              onDeactivate={handleDeactivate}
+              onActivate={handleActivate}
+              isLoading={isLoading}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 모달들 */}
+      <EditUserModal
+        user={editingUser}
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false)
+          setEditingUser(null)
+        }}
+        onSave={handleSaveLimit}
+        isLoading={isSaving}
+      />
 
       <EditDailyLimitModal
         user={editingUser}
@@ -343,6 +453,30 @@ export default function AdminPage() {
         }}
         onSave={handleSaveDailyLimit}
         isLoading={isSaving}
+      />
+
+      <EditRemainingLimitModal
+        user={editingUser}
+        isOpen={showRemainingModal}
+        onClose={() => {
+          setShowRemainingModal(false)
+          setEditingUser(null)
+        }}
+        onSave={handleSaveRemaining}
+        isLoading={isSaving}
+      />
+
+      <BulkUpdateLimitModal
+        isOpen={showBulkModal}
+        onClose={() => setShowBulkModal(false)}
+        totalUsers={users.length}
+        activeUsers={activeUsers}
+        inactiveUsers={deactivatedUsers}
+        onSuccess={(updated) => {
+          toast.success(`${updated}명의 사용자 할당량이 설정되었습니다`)
+          loadUsers()
+          setShowBulkModal(false)
+        }}
       />
     </div>
   )

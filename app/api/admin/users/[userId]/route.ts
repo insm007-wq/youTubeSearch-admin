@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserById, updateUserLimit, deactivateUser, activateUser } from '@/lib/userLimits'
-import { logUserLimitChange, logUserDeactivation, logUserActivation } from '@/lib/auditLogs'
 
 export async function GET(
   request: NextRequest,
@@ -57,59 +56,49 @@ export async function PATCH(
 
     console.log(`👤 조회된 사용자:`, {
       _id: user._id,
-      userId: user.userId,
       email: user.email,
-      isDeactivated: user.isDeactivated,
+      isActive: user.isActive,
       dailyLimit: user.dailyLimit,
     })
 
     let updatedUser: any = user
-    let log
-
-    // user.userId는 "google:103840..." 형식 (실제 userId)
-    const actualUserId = user.userId
 
     if (action === 'deactivate') {
-      console.log(`🔴 비활성화 실행 - actualUserId: ${actualUserId}`)
-      const result = await deactivateUser(actualUserId)
+      console.log(`🔴 비활성화 실행 - _id: ${_id}`)
+      const result = await deactivateUser(_id)
       if (result) updatedUser = result
-      log = await logUserDeactivation(actualUserId, user.email)
-      console.log(`✅ 비활성화 완료 - isDeactivated: ${result?.isDeactivated}`)
+      console.log(`✅ 비활성화 완료 - isActive: ${result?.isActive}`)
     } else if (action === 'activate') {
       const limit = dailyLimit || 20
-      console.log(`🟢 활성화 실행 - actualUserId: ${actualUserId}, limit: ${limit}`)
-      const result = await activateUser(actualUserId, limit)
+      console.log(`🟢 활성화 실행 - _id: ${_id}, limit: ${limit}`)
+      const result = await activateUser(_id, limit)
       if (result) updatedUser = result
-      log = await logUserActivation(actualUserId, user.email, limit)
-      console.log(`✅ 활성화 완료 - isDeactivated: ${result?.isDeactivated}`)
+      console.log(`✅ 활성화 완료 - isActive: ${result?.isActive}`)
     } else if (action === 'reset_remaining') {
       // remainingLimit을 dailyLimit으로 초기화
-      console.log(`🔄 잔여량 초기화 - actualUserId: ${actualUserId}, remainingLimit: ${user.dailyLimit}로 설정`)
-      const result = await updateUserLimit(actualUserId, user.dailyLimit, user.email, user.dailyLimit)
+      console.log(`🔄 잔여량 초기화 - _id: ${_id}, remainingLimit: ${user.dailyLimit}로 설정`)
+      const result = await updateUserLimit(_id, user.dailyLimit, undefined, user.dailyLimit)
       if (result) updatedUser = result
       console.log(`✅ 잔여량 초기화 완료 - remainingLimit: ${result?.remainingLimit}`)
     } else if (remainingLimit !== undefined && dailyLimit === undefined) {
       // remainingLimit만 수정하는 경우
-      console.log(`📝 잔여량 수정 - actualUserId: ${actualUserId}, remainingLimit: ${remainingLimit}`)
-      const result = await updateUserLimit(actualUserId, user.dailyLimit, user.email, remainingLimit)
+      console.log(`📝 잔여량 수정 - _id: ${_id}, remainingLimit: ${remainingLimit}`)
+      const result = await updateUserLimit(_id, user.dailyLimit, undefined, remainingLimit)
       if (result) updatedUser = result
     } else if (dailyLimit !== undefined) {
       const previousLimit = user.dailyLimit
       // dailyLimit만 수정하는 경우: 기존 remainingLimit 보존
-      console.log(`📝 할당량 수정 - actualUserId: ${actualUserId}, ${previousLimit} → ${dailyLimit}, 기존 remainingLimit 보존: ${user.remainingLimit}`)
-      const result = await updateUserLimit(actualUserId, dailyLimit, user.email, user.remainingLimit)
+      console.log(`📝 할당량 수정 - _id: ${_id}, ${previousLimit} → ${dailyLimit}`)
+      const result = await updateUserLimit(_id, dailyLimit, undefined, user.remainingLimit)
       if (result) updatedUser = result
-      log = await logUserLimitChange(actualUserId, user.email, previousLimit, dailyLimit)
     }
 
     return NextResponse.json({
       success: true,
       data: {
         ...updatedUser,
-        _id: user.email,  // 이메일을 프라이머리 키로 사용
-        remainingLimit: updatedUser?.remainingLimit,  // remainingLimit 명시적으로 포함
+        _id: updatedUser?._id?.toString() || user._id,
       },
-      log,
     })
   } catch (error) {
     console.error('Failed to update user:', error)

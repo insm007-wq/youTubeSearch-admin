@@ -1,6 +1,5 @@
 import { connectToDatabase } from './mongodb'
 import { ObjectId } from 'mongodb'
-import { getUserById } from './userLimits'
 
 // 환경변수에서 설정, 기본값 15
 const DAILY_LIMIT = parseInt(process.env.API_DAILY_LIMIT || '15', 10)
@@ -88,22 +87,23 @@ export async function checkApiUsage(
       date: today
     })
 
-    // user_limits에서 사용자의 할당량 및 잔여량 조회
+    // users 컬렉션에서 사용자의 할당량 및 잔여량 조회
     let dailyLimit = DAILY_LIMIT
     let remainingLimit: number | undefined
     try {
-      const userLimit = await getUserById(userId)
-      if (userLimit) {
-        if (userLimit.dailyLimit) {
-          dailyLimit = userLimit.dailyLimit
+      const usersCollection = db.collection('users')
+      const user = await usersCollection.findOne({ _id: new ObjectId(userId) })
+      if (user) {
+        if (user.dailyLimit) {
+          dailyLimit = user.dailyLimit
         }
-        if (userLimit.remainingLimit !== undefined) {
-          remainingLimit = userLimit.remainingLimit
+        if (user.remainingLimit !== undefined) {
+          remainingLimit = user.remainingLimit
         }
       }
     } catch (error) {
-      // user_limits 조회 실패 시 기본값 사용
-      console.warn(`⚠️ user_limits 조회 실패 (userId: ${userId}), 기본값 ${DAILY_LIMIT} 사용`)
+      // users 조회 실패 시 기본값 사용
+      console.warn(`⚠️ users 조회 실패 (userId: ${userId}), 기본값 ${DAILY_LIMIT} 사용`)
     }
 
     const used = usageRecord?.count ?? 0
@@ -181,22 +181,23 @@ export async function incrementApiUsage(userId: string, email: string): Promise<
       }
     )
 
-    // user_limits에서 사용자의 할당량 및 잔여량 조회
+    // users 컬렉션에서 사용자의 할당량 및 잔여량 조회
     let dailyLimit = DAILY_LIMIT
     let remainingLimit: number | undefined
     try {
-      const userLimit = await getUserById(userId)
-      if (userLimit) {
-        if (userLimit.dailyLimit) {
-          dailyLimit = userLimit.dailyLimit
+      const usersCollection = db.collection('users')
+      const user = await usersCollection.findOne({ _id: new ObjectId(userId) })
+      if (user) {
+        if (user.dailyLimit) {
+          dailyLimit = user.dailyLimit
         }
-        if (userLimit.remainingLimit !== undefined) {
-          remainingLimit = userLimit.remainingLimit
+        if (user.remainingLimit !== undefined) {
+          remainingLimit = user.remainingLimit
         }
       }
     } catch (error) {
-      // user_limits 조회 실패 시 기본값 사용
-      console.warn(`⚠️ user_limits 조회 실패 (userId: ${userId}), 기본값 ${DAILY_LIMIT} 사용`)
+      // users 조회 실패 시 기본값 사용
+      console.warn(`⚠️ users 조회 실패 (userId: ${userId}), 기본값 ${DAILY_LIMIT} 사용`)
     }
 
     const updatedCount = result?.count ?? 1
@@ -287,22 +288,23 @@ export async function getTodayUsage(userId: string) {
       date: today
     })
 
-    // user_limits에서 사용자의 할당량 및 잔여량 조회
+    // users 컬렉션에서 사용자의 할당량 및 잔여량 조회
     let dailyLimit = DAILY_LIMIT
     let remainingLimit: number | undefined
     try {
-      const userLimit = await getUserById(userId)
-      if (userLimit) {
-        if (userLimit.dailyLimit) {
-          dailyLimit = userLimit.dailyLimit
+      const usersCollection = db.collection('users')
+      const user = await usersCollection.findOne({ _id: new ObjectId(userId) })
+      if (user) {
+        if (user.dailyLimit) {
+          dailyLimit = user.dailyLimit
         }
-        if (userLimit.remainingLimit !== undefined) {
-          remainingLimit = userLimit.remainingLimit
+        if (user.remainingLimit !== undefined) {
+          remainingLimit = user.remainingLimit
         }
       }
     } catch (error) {
-      // user_limits 조회 실패 시 기본값 사용
-      console.warn(`⚠️ user_limits 조회 실패 (userId: ${userId}), 기본값 ${DAILY_LIMIT} 사용`)
+      // users 조회 실패 시 기본값 사용
+      console.warn(`⚠️ users 조회 실패 (userId: ${userId}), 기본값 ${DAILY_LIMIT} 사용`)
     }
 
     const used = record?.count ?? 0

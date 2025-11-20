@@ -54,7 +54,11 @@
       "Bash(node check-all-accounts.mjs:*)",
       "Bash(node cleanup_usage.mjs:*)",
       "Bash(git branch:*)",
-      "Bash(git remote add:*)"
+      "Bash(git remote add:*)",
+      "Bash(npx shadcn-ui@latest init:*)",
+      "Bash(npx shadcn@latest init -y)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []

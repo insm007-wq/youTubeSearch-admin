@@ -1,9 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { X } from 'lucide-react'
 import { AdminUser } from '@/types/user'
-import './EditUserModal.css'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AlertCircle } from 'lucide-react'
 
 interface EditRemainingLimitModalProps {
   user: AdminUser | null
@@ -23,7 +34,13 @@ export default function EditRemainingLimitModal({
   const [newRemaining, setNewRemaining] = useState('')
   const [error, setError] = useState('')
 
-  if (!user || !isOpen) return null
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      onClose()
+      setNewRemaining('')
+      setError('')
+    }
+  }
 
   const handleSave = async () => {
     setError('')
@@ -35,14 +52,17 @@ export default function EditRemainingLimitModal({
     }
 
     try {
+      if (!user) {
+        setError('사용자를 찾을 수 없습니다')
+        return
+      }
       const userId = user._id || user.userId
       if (!userId) {
         setError('사용자 ID를 찾을 수 없습니다')
         return
       }
       await onSave(userId, remaining)
-      onClose()
-      setNewRemaining('')
+      handleOpenChange(false)
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '저장에 실패했습니다'
       setError(errorMsg)
@@ -50,46 +70,66 @@ export default function EditRemainingLimitModal({
     }
   }
 
-  const handlePresetChange = (newValue: number) => {
-    setNewRemaining(newValue.toString())
+  const setPresetRemaining = (value: number) => {
+    setNewRemaining(value.toString())
   }
 
-  const currentRemaining = (user as any).remainingLimit !== undefined ? (user as any).remainingLimit : '-'
+  if (!user) return null
+
+  const currentRemaining =
+    (user as any).remainingLimit !== undefined
+      ? (user as any).remainingLimit
+      : (user as any).remaining
+      ? (user as any).remaining
+      : '-'
 
   return (
-    <>
-      <div className="modal-overlay" onClick={onClose} />
-      <div className="modal-container">
-        <div className="modal-header">
-          <h2>잔여량 수정</h2>
-          <button className="modal-close-btn" onClick={onClose}>
-            <X size={24} />
-          </button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>잔여량 수정</DialogTitle>
+          <DialogDescription>
+            {user.email}의 잔여량을 설정합니다
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="modal-body">
-          <div className="modal-info">
-            <div className="info-row">
-              <label>이메일:</label>
-              <span>{user.email}</span>
-            </div>
-            <div className="info-row">
-              <label>User ID:</label>
-              <span className="user-id">{user.userId}</span>
-            </div>
-            <div className="info-row">
-              <label>일일 할당량:</label>
-              <span>{user.dailyLimit}</span>
-            </div>
-            <div className="info-row">
-              <label>현재 잔여량:</label>
-              <span>{currentRemaining}</span>
+        <div className="space-y-4 py-4">
+          {/* 사용자 정보 */}
+          <div className="space-y-2 bg-muted p-3 rounded-lg">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">이메일</p>
+                <p className="font-medium break-all text-xs">{user.email}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">User ID</p>
+                <p className="font-mono text-xs break-all">{user.userId || '-'}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">일일 할당량</p>
+                <p className="font-medium text-sm">{user.dailyLimit}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">현재 잔여량</p>
+                <p className="font-medium text-sm">{currentRemaining}</p>
+              </div>
             </div>
           </div>
 
-          <div className="modal-form">
-            <label htmlFor="remaining">새 잔여량:</label>
-            <input
+          {/* 에러 메시지 */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* 입력 폼 */}
+          <div className="space-y-2">
+            <Label htmlFor="remaining" className="text-sm font-medium">
+              새 잔여량
+            </Label>
+            <Input
               id="remaining"
               type="number"
               min="0"
@@ -98,60 +138,45 @@ export default function EditRemainingLimitModal({
               onChange={(e) => setNewRemaining(e.target.value)}
               placeholder="새 잔여량 입력"
               disabled={isLoading}
+              className="text-sm"
             />
-
-            {error && <div className="error-message">{error}</div>}
-
-            <div className="preset-buttons">
-              <button
-                type="button"
-                className="preset-btn"
-                onClick={() => handlePresetChange(5)}
-                disabled={isLoading}
-              >
-                5회
-              </button>
-              <button
-                type="button"
-                className="preset-btn"
-                onClick={() => handlePresetChange(10)}
-                disabled={isLoading}
-              >
-                10회
-              </button>
-              <button
-                type="button"
-                className="preset-btn"
-                onClick={() => handlePresetChange(20)}
-                disabled={isLoading}
-              >
-                20회
-              </button>
-              <button
-                type="button"
-                className="preset-btn"
-                onClick={() => handlePresetChange(50)}
-                disabled={isLoading}
-              >
-                50회
-              </button>
+            <div className="flex gap-2 mt-2">
+              {[5, 10, 20, 50].map((value) => (
+                <Button
+                  key={value}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPresetRemaining(value)}
+                  disabled={isLoading}
+                  className="text-xs"
+                >
+                  {value}회
+                </Button>
+              ))}
             </div>
           </div>
         </div>
 
-        <div className="modal-footer">
-          <button className="btn-cancel" onClick={onClose} disabled={isLoading}>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={isLoading}
+          >
             취소
-          </button>
-          <button
-            className="btn-save"
+          </Button>
+          <Button
+            type="button"
             onClick={handleSave}
             disabled={isLoading || !newRemaining}
+            className="bg-primary"
           >
             {isLoading ? '저장 중...' : '저장'}
-          </button>
-        </div>
-      </div>
-    </>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

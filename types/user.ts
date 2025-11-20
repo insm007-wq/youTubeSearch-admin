@@ -1,13 +1,15 @@
 export interface AdminUser {
-  _id?: string
-  userId?: string
+  _id: string
   email: string
   name?: string | null
   image?: string | null
   dailyLimit: number
-  remainingLimit?: number
-  isDeactivated: boolean
+  remainingLimit: number
+  isActive: boolean
   createdAt?: string | Date
   updatedAt?: string | Date
-  remaining?: number
+}
+
+export interface User extends AdminUser {
+  emailVerified?: Date | null
 }
