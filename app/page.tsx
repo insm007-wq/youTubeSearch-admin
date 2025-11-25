@@ -102,11 +102,11 @@ export default function AdminPage() {
     setShowRemainingModal(true)
   }
 
-  const handleSaveDailyLimit = async (userId: string, newLimit: number) => {
+  const handleSaveDailyLimit = async (email: string, newLimit: number) => {
     setIsSaving(true)
-    console.log(`📝 handleSaveDailyLimit 시작 - userId: ${userId}, newLimit: ${newLimit}`)
+    console.log(`📝 handleSaveDailyLimit 시작 - email: ${email}, newLimit: ${newLimit}`)
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      const response = await fetch(`/api/admin/users/${email}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dailyLimit: newLimit }),
@@ -144,11 +144,11 @@ export default function AdminPage() {
     }
   }
 
-  const handleSaveRemaining = async (userId: string, newRemaining: number) => {
+  const handleSaveRemaining = async (email: string, newRemaining: number) => {
     setIsSaving(true)
-    console.log(`📝 handleSaveRemaining 시작 - userId: ${userId}, newRemaining: ${newRemaining}`)
+    console.log(`📝 handleSaveRemaining 시작 - email: ${email}, newRemaining: ${newRemaining}`)
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      const response = await fetch(`/api/admin/users/${email}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ remainingLimit: newRemaining }),
@@ -187,7 +187,7 @@ export default function AdminPage() {
   const handleResetRemaining = async (user: User) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/admin/users/${user._id}`, {
+      const response = await fetch(`/api/admin/users/${user.email}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reset_remaining' }),
@@ -213,16 +213,16 @@ export default function AdminPage() {
     }
   }
 
-  const handleSaveLimit = async (userId: string, newLimit: number, newRemaining?: number) => {
+  const handleSaveLimit = async (email: string, newLimit: number, newRemaining?: number) => {
     setIsSaving(true)
-    console.log(`📝 handleSaveLimit 시작 - userId: ${userId}, newLimit: ${newLimit}, newRemaining: ${newRemaining}`)
+    console.log(`📝 handleSaveLimit 시작 - email: ${email}, newLimit: ${newLimit}, newRemaining: ${newRemaining}`)
     try {
       const requestBody: any = { dailyLimit: newLimit }
       if (newRemaining !== undefined) {
         requestBody.remainingLimit = newRemaining
       }
 
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      const response = await fetch(`/api/admin/users/${email}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -267,7 +267,7 @@ export default function AdminPage() {
   const handleDeactivate = async (user: User) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/admin/users/${user._id}`, {
+      const response = await fetch(`/api/admin/users/${user.email}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deactivate' }),
@@ -292,7 +292,7 @@ export default function AdminPage() {
   const handleActivate = async (user: User) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/admin/users/${user._id}`, {
+      const response = await fetch(`/api/admin/users/${user.email}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'activate', dailyLimit: 20 }),

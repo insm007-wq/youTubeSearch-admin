@@ -60,7 +60,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
 
           return {
-            id: user._id.toString(),
+            id: user.email,
             email: user.email,
             name: user.name,
             image: user.image,
@@ -78,8 +78,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async session({ session, user }) {
       if (session.user) {
-        // user.id는 MongoDB의 users 컬렉션 _id (ObjectId string)
-        // api_usage 컬렉션과 일관성 있게 저장
+        // user.id는 email (Primary Key)
         session.user.id = user.id
       }
       return session

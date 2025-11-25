@@ -131,7 +131,7 @@ export async function updateUserLimit(
   const { db } = await connectToDatabase()
   const usersCollection = db.collection('users')
 
-  console.log(`📝 updateUserLimit - email: ${email}, dailyLimit: ${dailyLimit}`)
+  console.log(`📝 updateUserLimit - email: ${email}, dailyLimit: ${dailyLimit}, remainingLimit: ${remainingLimit}`)
 
   const updateData: any = {
     dailyLimit,
@@ -143,7 +143,7 @@ export async function updateUserLimit(
   }
 
   const result = await usersCollection.findOneAndUpdate(
-    { email },
+    { email },  // Email Primary Key
     { $set: updateData },
     { returnDocument: 'after' }
   )
