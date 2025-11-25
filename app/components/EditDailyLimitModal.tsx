@@ -20,7 +20,7 @@ interface EditDailyLimitModalProps {
   user: AdminUser | null
   isOpen: boolean
   onClose: () => void
-  onSave: (userId: string, dailyLimit: number) => Promise<void>
+  onSave: (email: string, dailyLimit: number) => Promise<void>
   isLoading?: boolean
 }
 
@@ -55,21 +55,14 @@ export default function EditDailyLimitModal({
     }
 
     try {
-      if (!user) {
+      if (!user || !user.email) {
         setError('사용자를 찾을 수 없습니다')
-        console.error(`❌ user가 null`)
+        console.error(`❌ user 또는 email이 없음`)
         return
       }
-      const userId = user._id || user.userId
-      console.log(`👤 userId 결정 - _id: ${user._id}, userId: ${user.userId}, 최종: ${userId}`)
 
-      if (!userId) {
-        setError('사용자 ID를 찾을 수 없습니다')
-        console.error(`❌ userId가 없음`)
-        return
-      }
-      console.log(`✅ onSave 호출 시작 - userId: ${userId}, limit: ${limit}`)
-      await onSave(userId, limit)
+      console.log(`✅ onSave 호출 시작 - email: ${user.email}, limit: ${limit}`)
+      await onSave(user.email, limit)
       console.log(`✅ onSave 호출 완료`)
       handleOpenChange(false)
     } catch (err) {

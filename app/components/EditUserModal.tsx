@@ -20,7 +20,7 @@ interface EditUserModalProps {
   user: AdminUser | null
   isOpen: boolean
   onClose: () => void
-  onSave: (userId: string, dailyLimit: number, remainingLimit?: number) => Promise<void>
+  onSave: (email: string, dailyLimit: number, remainingLimit?: number) => Promise<void>
   isLoading?: boolean
 }
 
@@ -63,16 +63,11 @@ export default function EditUserModal({
     }
 
     try {
-      if (!user) {
+      if (!user || !user.email) {
         setError('사용자를 찾을 수 없습니다')
         return
       }
-      const userId = user._id || user.userId
-      if (!userId) {
-        setError('사용자 ID를 찾을 수 없습니다')
-        return
-      }
-      await onSave(userId, limit, remaining)
+      await onSave(user.email, limit, remaining)
       handleOpenChange(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장에 실패했습니다')
@@ -102,10 +97,6 @@ export default function EditUserModal({
               <div>
                 <p className="text-muted-foreground">이메일</p>
                 <p className="font-medium break-all text-xs">{user.email}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">User ID</p>
-                <p className="font-mono text-xs break-all">{user.userId || '-'}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">현재 할당량</p>

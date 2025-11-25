@@ -108,17 +108,17 @@ export default function UserTable({
     if (selectedIds.size === paginatedUsers.length) {
       setSelectedIds(new Set())
     } else {
-      const ids = new Set(paginatedUsers.map((u) => u._id || u.email))
+      const ids = new Set(paginatedUsers.map((u) => u.email))
       setSelectedIds(ids)
     }
   }
 
-  const toggleSelected = (id: string) => {
+  const toggleSelected = (email: string) => {
     const newSelected = new Set(selectedIds)
-    if (newSelected.has(id)) {
-      newSelected.delete(id)
+    if (newSelected.has(email)) {
+      newSelected.delete(email)
     } else {
-      newSelected.add(id)
+      newSelected.add(email)
     }
     setSelectedIds(newSelected)
   }
@@ -200,15 +200,15 @@ export default function UserTable({
           <TableBody>
             {paginatedUsers.map((user) => (
               <TableRow
-                key={user._id || user.email}
+                key={user.email}
                 className={`hover:bg-muted/50 transition-colors ${
-                  user.isDeactivated ? 'opacity-60' : ''
+                  !user.isActive ? 'opacity-60' : ''
                 }`}
               >
                 <TableCell className="w-12">
                   <Checkbox
-                    checked={selectedIds.has(user._id || user.email)}
-                    onCheckedChange={() => toggleSelected(user._id || user.email)}
+                    checked={selectedIds.has(user.email)}
+                    onCheckedChange={() => toggleSelected(user.email)}
                   />
                 </TableCell>
                 <TableCell className="font-medium">{user.email}</TableCell>

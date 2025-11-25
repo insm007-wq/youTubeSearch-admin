@@ -20,7 +20,7 @@ interface EditRemainingLimitModalProps {
   user: AdminUser | null
   isOpen: boolean
   onClose: () => void
-  onSave: (userId: string, remainingLimit: number) => Promise<void>
+  onSave: (email: string, remainingLimit: number) => Promise<void>
   isLoading?: boolean
 }
 
@@ -52,16 +52,11 @@ export default function EditRemainingLimitModal({
     }
 
     try {
-      if (!user) {
+      if (!user || !user.email) {
         setError('사용자를 찾을 수 없습니다')
         return
       }
-      const userId = user._id || user.userId
-      if (!userId) {
-        setError('사용자 ID를 찾을 수 없습니다')
-        return
-      }
-      await onSave(userId, remaining)
+      await onSave(user.email, remaining)
       handleOpenChange(false)
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '저장에 실패했습니다'
