@@ -11,13 +11,19 @@ export async function getAllUsers(): Promise<AdminUser[]> {
     .toArray()
 
   return users.map((user: any) => ({
-    _id: user._id?.toString(),
     email: user.email,
     name: user.name || null,
     image: user.image || null,
-    dailyLimit: user.dailyLimit || 15,
-    remainingLimit: user.remainingLimit || 15,
-    isActive: user.isActive !== false, // 기본값 true
+    dailyLimit: user.dailyLimit || 20,
+    remainingLimit: user.remainingLimit || 20,
+    todayUsed: user.todayUsed || 0,
+    lastResetDate: user.lastResetDate || new Date().toISOString().split('T')[0],
+    isActive: user.isActive !== false,
+    isBanned: user.isBanned || false,
+    isOnline: user.isOnline || false,
+    lastActive: user.lastActive || new Date(),
+    lastLogin: user.lastLogin || new Date(),
+    provider: user.provider || undefined,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   }))
@@ -40,48 +46,51 @@ export async function searchUsers(query: string): Promise<AdminUser[]> {
     .toArray()
 
   return users.map((user: any) => ({
-    _id: user._id?.toString(),
     email: user.email,
     name: user.name || null,
     image: user.image || null,
-    dailyLimit: user.dailyLimit || 15,
-    remainingLimit: user.remainingLimit || 15,
+    dailyLimit: user.dailyLimit || 20,
+    remainingLimit: user.remainingLimit || 20,
+    todayUsed: user.todayUsed || 0,
+    lastResetDate: user.lastResetDate || new Date().toISOString().split('T')[0],
     isActive: user.isActive !== false,
+    isBanned: user.isBanned || false,
+    isOnline: user.isOnline || false,
+    lastActive: user.lastActive || new Date(),
+    lastLogin: user.lastLogin || new Date(),
+    provider: user.provider || undefined,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   }))
 }
 
-export async function getUserById(userId: string): Promise<AdminUser | null> {
+export async function getUserById(email: string): Promise<AdminUser | null> {
   const { db } = await connectToDatabase()
   const usersCollection = db.collection('users')
 
-  console.log(`🔍 getUserById - userId: ${userId}`)
+  console.log(`🔍 getUserById - email: ${email}`)
 
-  try {
-    const { ObjectId } = require('mongodb')
-    if (ObjectId.isValid(userId)) {
-      const user = await usersCollection.findOne({
-        _id: new ObjectId(userId),
-      })
+  const user = await usersCollection.findOne({ email })
 
-      if (user) {
-        console.log(`✅ 사용자 찾음: ${user.email}`)
-        return {
-          _id: user._id?.toString(),
-          email: user.email,
-          name: user.name || null,
-          image: user.image || null,
-          dailyLimit: user.dailyLimit || 15,
-          remainingLimit: user.remainingLimit || 15,
-          isActive: user.isActive !== false,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        }
-      }
+  if (user) {
+    console.log(`✅ 사용자 찾음: ${user.email}`)
+    return {
+      email: user.email,
+      name: user.name || null,
+      image: user.image || null,
+      dailyLimit: user.dailyLimit || 20,
+      remainingLimit: user.remainingLimit || 20,
+      todayUsed: user.todayUsed || 0,
+      lastResetDate: user.lastResetDate || new Date().toISOString().split('T')[0],
+      isActive: user.isActive !== false,
+      isBanned: user.isBanned || false,
+      isOnline: user.isOnline || false,
+      lastActive: user.lastActive || new Date(),
+      lastLogin: user.lastLogin || new Date(),
+      provider: user.provider || undefined,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     }
-  } catch (e) {
-    console.log(`ObjectId 변환 실패:`, e)
   }
 
   return null
@@ -96,39 +105,33 @@ export async function getUserByEmail(email: string): Promise<AdminUser | null> {
   if (!user) return null
 
   return {
-    _id: user._id?.toString(),
     email: user.email,
     name: user.name || null,
     image: user.image || null,
-    dailyLimit: user.dailyLimit || 15,
-    remainingLimit: user.remainingLimit || 15,
+    dailyLimit: user.dailyLimit || 20,
+    remainingLimit: user.remainingLimit || 20,
+    todayUsed: user.todayUsed || 0,
+    lastResetDate: user.lastResetDate || new Date().toISOString().split('T')[0],
     isActive: user.isActive !== false,
+    isBanned: user.isBanned || false,
+    isOnline: user.isOnline || false,
+    lastActive: user.lastActive || new Date(),
+    lastLogin: user.lastLogin || new Date(),
+    provider: user.provider || undefined,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   }
 }
 
 export async function updateUserLimit(
-  userId: string,
+  email: string,
   dailyLimit: number,
-  userEmail?: string,
   remainingLimit?: number
 ): Promise<AdminUser | null> {
   const { db } = await connectToDatabase()
   const usersCollection = db.collection('users')
 
-  console.log(
-    `📝 updateUserLimit - userId: ${userId}, dailyLimit: ${dailyLimit}, remainingLimit: ${remainingLimit}`
-  )
-
-  const { ObjectId } = require('mongodb')
-  let filter: any = {}
-
-  if (ObjectId.isValid(userId)) {
-    filter = { _id: new ObjectId(userId) }
-  } else {
-    filter = { email: userId }
-  }
+  console.log(`📝 updateUserLimit - email: ${email}, dailyLimit: ${dailyLimit}`)
 
   const updateData: any = {
     dailyLimit,
@@ -139,104 +142,114 @@ export async function updateUserLimit(
     updateData.remainingLimit = remainingLimit
   }
 
-  const result = await usersCollection.findOneAndUpdate(filter, {
-    $set: updateData,
-  })
+  const result = await usersCollection.findOneAndUpdate(
+    { email },
+    { $set: updateData },
+    { returnDocument: 'after' }
+  )
 
   if (!result) return null
 
   console.log(`✅ 업데이트 완료: ${result.email}`)
 
   return {
-    _id: result._id?.toString(),
     email: result.email,
     name: result.name || null,
     image: result.image || null,
     dailyLimit: result.dailyLimit || dailyLimit,
     remainingLimit: result.remainingLimit || remainingLimit || dailyLimit,
+    todayUsed: result.todayUsed || 0,
+    lastResetDate: result.lastResetDate || new Date().toISOString().split('T')[0],
     isActive: result.isActive !== false,
+    isBanned: result.isBanned || false,
+    isOnline: result.isOnline || false,
+    lastActive: result.lastActive || new Date(),
+    lastLogin: result.lastLogin || new Date(),
+    provider: result.provider || undefined,
     createdAt: result.createdAt,
     updatedAt: result.updatedAt,
   }
 }
 
-export async function deactivateUser(userId: string): Promise<AdminUser | null> {
+export async function deactivateUser(email: string): Promise<AdminUser | null> {
   const { db } = await connectToDatabase()
   const usersCollection = db.collection('users')
 
-  console.log(`🔴 deactivateUser - userId: ${userId}`)
+  console.log(`🔴 deactivateUser - email: ${email}`)
 
-  const { ObjectId } = require('mongodb')
-  let filter: any = {}
-
-  if (ObjectId.isValid(userId)) {
-    filter = { _id: new ObjectId(userId) }
-  } else {
-    filter = { email: userId }
-  }
-
-  const result = await usersCollection.findOneAndUpdate(filter, {
-    $set: {
-      isActive: false,
-      updatedAt: new Date(),
+  const result = await usersCollection.findOneAndUpdate(
+    { email },
+    {
+      $set: {
+        isActive: false,
+        updatedAt: new Date(),
+      },
     },
-  })
+    { returnDocument: 'after' }
+  )
 
   if (!result) return null
 
   console.log(`✅ 비활성화 완료: ${result.email}`)
 
   return {
-    _id: result._id?.toString(),
     email: result.email,
     name: result.name || null,
     image: result.image || null,
-    dailyLimit: result.dailyLimit || 15,
-    remainingLimit: result.remainingLimit || 15,
+    dailyLimit: result.dailyLimit || 20,
+    remainingLimit: result.remainingLimit || 20,
+    todayUsed: result.todayUsed || 0,
+    lastResetDate: result.lastResetDate || new Date().toISOString().split('T')[0],
     isActive: false,
+    isBanned: result.isBanned || false,
+    isOnline: result.isOnline || false,
+    lastActive: result.lastActive || new Date(),
+    lastLogin: result.lastLogin || new Date(),
+    provider: result.provider || undefined,
     createdAt: result.createdAt,
     updatedAt: result.updatedAt,
   }
 }
 
 export async function activateUser(
-  userId: string,
+  email: string,
   dailyLimit: number = 20
 ): Promise<AdminUser | null> {
   const { db } = await connectToDatabase()
   const usersCollection = db.collection('users')
 
-  console.log(`🟢 activateUser - userId: ${userId}, dailyLimit: ${dailyLimit}`)
+  console.log(`🟢 activateUser - email: ${email}, dailyLimit: ${dailyLimit}`)
 
-  const { ObjectId } = require('mongodb')
-  let filter: any = {}
-
-  if (ObjectId.isValid(userId)) {
-    filter = { _id: new ObjectId(userId) }
-  } else {
-    filter = { email: userId }
-  }
-
-  const result = await usersCollection.findOneAndUpdate(filter, {
-    $set: {
-      isActive: true,
-      dailyLimit,
-      updatedAt: new Date(),
+  const result = await usersCollection.findOneAndUpdate(
+    { email },
+    {
+      $set: {
+        isActive: true,
+        dailyLimit,
+        updatedAt: new Date(),
+      },
     },
-  })
+    { returnDocument: 'after' }
+  )
 
   if (!result) return null
 
   console.log(`✅ 활성화 완료: ${result.email}`)
 
   return {
-    _id: result._id?.toString(),
     email: result.email,
     name: result.name || null,
     image: result.image || null,
     dailyLimit,
     remainingLimit: result.remainingLimit || dailyLimit,
+    todayUsed: result.todayUsed || 0,
+    lastResetDate: result.lastResetDate || new Date().toISOString().split('T')[0],
     isActive: true,
+    isBanned: result.isBanned || false,
+    isOnline: result.isOnline || false,
+    lastActive: result.lastActive || new Date(),
+    lastLogin: result.lastLogin || new Date(),
+    provider: result.provider || undefined,
     createdAt: result.createdAt,
     updatedAt: result.updatedAt,
   }

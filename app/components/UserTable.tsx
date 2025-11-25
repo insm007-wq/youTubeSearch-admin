@@ -189,6 +189,7 @@ export default function UserTable({
               </TableHead>
               <SortHeader field="email" label="이메일" />
               <SortHeader field="name" label="이름" />
+              <TableHead>제공자</TableHead>
               <SortHeader field="dailyLimit" label="일일 할당량" />
               <SortHeader field="remainingLimit" label="잔여량" />
               <TableHead>상태</TableHead>
@@ -212,6 +213,22 @@ export default function UserTable({
                 </TableCell>
                 <TableCell className="font-medium">{user.email}</TableCell>
                 <TableCell>{user.name || '-'}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-medium"
+                  >
+                    {user.provider ? (
+                      <>
+                        {user.provider === 'google' && '🔵 Google'}
+                        {user.provider === 'kakao' && '🟨 Kakao'}
+                        {user.provider === 'naver' && '🟢 Naver'}
+                      </>
+                    ) : (
+                      '미설정'
+                    )}
+                  </Badge>
+                </TableCell>
                 <TableCell>
                   <Badge
                     variant="outline"
