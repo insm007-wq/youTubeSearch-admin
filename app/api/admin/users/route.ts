@@ -7,12 +7,21 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const query = searchParams.get('q')
 
+    console.log(`🔵 GET /api/admin/users - query: "${query}"`)
+
     let users
 
     if (query && query.trim()) {
+      console.log(`🔍 검색 수행 - 검색어: "${query}"`)
       users = await searchUsers(query)
+      console.log(`📊 검색 결과: ${users.length}명`)
+      if (users.length > 0) {
+        console.log(`📋 첫 번째 결과:`, users[0])
+      }
     } else {
+      console.log(`📋 전체 사용자 조회`)
       users = await getAllUsers()
+      console.log(`📊 전체 사용자: ${users.length}명`)
     }
 
     return NextResponse.json({
@@ -71,7 +80,7 @@ export async function POST(request: NextRequest) {
     for (const user of targetUsers) {
       try {
         const result = await usersCollection.updateOne(
-          { _id: user._id },
+          { email: user.email },
           {
             $set: {
               dailyLimit,

@@ -67,12 +67,18 @@ export default function AdminPage() {
 
     try {
       const url = query ? `/api/admin/users?q=${encodeURIComponent(query)}` : '/api/admin/users'
+      console.log(`🔍 검색 시작 - query: "${query}", url: ${url}`)
       const response = await fetch(url)
       const data = await response.json()
+
+      console.log(`📊 응답 받음:`, data)
 
       if (!data.success) {
         throw new Error(data.error || '검색에 실패했습니다')
       }
+
+      console.log(`✅ 사용자 수: ${data.data.length}`)
+      console.log(`📋 첫 번째 사용자:`, data.data[0])
 
       setUsers(data.data)
       if (query) {
@@ -81,6 +87,7 @@ export default function AdminPage() {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
       setError(errorMsg)
+      console.error(`❌ 검색 오류:`, err)
       toast.error('검색 실패', { description: errorMsg })
     } finally {
       setIsLoading(false)
