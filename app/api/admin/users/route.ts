@@ -77,26 +77,47 @@ export async function POST(request: NextRequest) {
     let updated = 0
     const results = []
 
+    // KST 기준 오늘 날짜 계산
+    const today = new Date()
+    const kstDate = new Date(today.getTime() + 9 * 60 * 60 * 1000)
+    const todayStr = kstDate.toISOString().split('T')[0]
+
+    const apiUsageCollection = db.collection('api_usage')
+
     for (const user of targetUsers) {
       try {
+        // api_usage에서 오늘 사용량 조회
+        const apiUsage = await apiUsageCollection.findOne({
+          email: user.email,
+          date: todayStr
+        })
+
+        const todayUsed = apiUsage?.count ?? 0
+        const calculatedRemaining = Math.max(0, dailyLimit - todayUsed)
+
         const result = await usersCollection.updateOne(
           { email: user.email },
           {
             $set: {
               dailyLimit,
-              remainingLimit: dailyLimit,
+              remainingLimit: calculatedRemaining,  // ✅ 실제 사용량 반영
+              lastResetDate: todayStr,
               updatedAt: new Date(),
             },
+            $unset: {
+              todayUsed: ""  // ✅ todayUsed 필드 제거
+            }
           }
         )
 
         if (result.modifiedCount > 0) {
           updated++
-          console.log(`✅ ${user.email} → dailyLimit: ${dailyLimit}`)
+          console.log(`✅ ${user.email} → dailyLimit: ${dailyLimit}, used: ${todayUsed}, remaining: ${calculatedRemaining}`)
           results.push({
             email: user.email,
             status: 'success',
             dailyLimit,
+            remainingLimit: calculatedRemaining,
           })
         }
       } catch (error) {
