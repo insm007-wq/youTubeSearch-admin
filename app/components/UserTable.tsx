@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Edit2, RefreshCw, ToggleRight, ToggleLeft, ChevronUp, ChevronDown } from 'lucide-react'
+import { Edit2, RefreshCw, ToggleRight, ToggleLeft, ChevronUp, ChevronDown, AlertCircle } from 'lucide-react'
 import { AdminUser } from '@/types/user'
+import { isUserOnline } from '@/lib/userUtils'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -30,6 +31,8 @@ interface UserTableProps {
   onResetRemaining: (user: AdminUser) => void
   onDeactivate: (user: AdminUser) => void
   onActivate: (user: AdminUser) => void
+  onBan: (user: AdminUser) => void
+  onUnban: (user: AdminUser) => void
   isLoading?: boolean
 }
 
@@ -43,6 +46,8 @@ export default function UserTable({
   onResetRemaining,
   onDeactivate,
   onActivate,
+  onBan,
+  onUnban,
   isLoading = false,
 }: UserTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -56,13 +61,13 @@ export default function UserTable({
     try {
       const date = new Date(dateValue)
       if (isNaN(date.getTime())) return '-'
-      return date.toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+
+      // ✅ UTC를 KST로 변환 (+9시간)
+      const kstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000)
+
+      return kstDate.toISOString().split('T')[0] + ' ' +
+             String(kstDate.getUTCHours()).padStart(2, '0') + ':' +
+             String(kstDate.getUTCMinutes()).padStart(2, '0')
     } catch {
       return '-'
     }
@@ -192,6 +197,7 @@ export default function UserTable({
               <TableHead>제공자</TableHead>
               <SortHeader field="dailyLimit" label="일일 할당량" />
               <SortHeader field="remainingLimit" label="잔여량" />
+              <TableHead>접속 상태</TableHead>
               <TableHead>상태</TableHead>
               <SortHeader field="createdAt" label="생성일" />
               <TableHead>작업</TableHead>
@@ -249,6 +255,20 @@ export default function UserTable({
                     {user.remainingLimit}
                   </Badge>
                 </TableCell>
+                {/* ✅ 접속 상태 */}
+                <TableCell>
+                  {isUserOnline(user.lastActive) ? (
+                    <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs">
+                      🟢 온라인
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs">
+                      ⚪ {user.lastActive
+                        ? `${Math.floor((Date.now() - new Date(user.lastActive).getTime()) / 60000)}분 전`
+                        : '미접속'}
+                    </Badge>
+                  )}
+                </TableCell>
                 <TableCell>
                   <Badge
                     variant={!user.isActive ? 'destructive' : 'default'}
@@ -295,6 +315,25 @@ export default function UserTable({
                         <RefreshCw className="w-4 h-4" />
                         <span>잔여량 초기화</span>
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {/* ✅ 차단/차단 해제 */}
+                      {!user.isBanned ? (
+                        <DropdownMenuItem
+                          onClick={() => onBan(user)}
+                          className="flex items-center gap-2 cursor-pointer text-red-600 dark:text-red-400"
+                        >
+                          <AlertCircle className="w-4 h-4" />
+                          <span>사용자 차단</span>
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          onClick={() => onUnban(user)}
+                          className="flex items-center gap-2 cursor-pointer text-green-600 dark:text-green-400"
+                        >
+                          <ToggleRight className="w-4 h-4" />
+                          <span>차단 해제</span>
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuSeparator />
                       {!user.isActive ? (
                         <DropdownMenuItem
@@ -346,8 +385,11 @@ export default function UserTable({
               이전
             </Button>
             <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }).map((_, i) => {
-                const page = i + 1
+              {Array.from({ length: 5 }).map((_, i) => {
+                const pageGroup = Math.floor((currentPage - 1) / 5)
+                const page = pageGroup * 5 + i + 1
+                if (page > totalPages) return null
+
                 const isCurrentPage = page === currentPage
                 return (
                   <Button
