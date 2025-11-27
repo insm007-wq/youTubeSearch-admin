@@ -8,18 +8,19 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get('q')
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50')))
+    const filter = (searchParams.get('filter') || 'all') as 'all' | 'online' | 'active' | 'inactive'
 
-    console.log(`🔵 GET /api/admin/users - query: "${query}", page: ${page}, limit: ${limit}`)
+    console.log(`🔵 GET /api/admin/users - query: "${query}", page: ${page}, limit: ${limit}, filter: ${filter}`)
 
     let result
 
     if (query && query.trim()) {
-      console.log(`🔍 검색 수행 - 검색어: "${query}"`)
-      result = await searchUsers(query, page, limit)
+      console.log(`🔍 검색 수행 - 검색어: "${query}", 필터: ${filter}`)
+      result = await searchUsers(query, page, limit, filter)
       console.log(`📊 검색 결과: ${result.users.length}명 (전체: ${result.total}명)`)
     } else {
-      console.log(`📋 전체 사용자 조회`)
-      result = await getAllUsers(page, limit)
+      console.log(`📋 전체 사용자 조회 - 필터: ${filter}`)
+      result = await getAllUsers(page, limit, filter)
       console.log(`📊 전체 사용자: ${result.users.length}명 (전체: ${result.total}명, 페이지: ${result.page}/${result.totalPages})`)
     }
 

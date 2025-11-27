@@ -7,16 +7,16 @@ import { AdminUser } from '@/types/user'
 
 /**
  * Check if a user is currently online based on their last active time.
- * Online threshold: 5 minutes (300 seconds) of activity
+ * Online threshold: 30 minutes (1800 seconds) of activity
  */
 export function isUserOnline(lastActive?: Date | string): boolean {
   if (!lastActive) return false
 
   const lastActiveTime = new Date(lastActive).getTime()
   const now = new Date().getTime()
-  const fiveMinutesInMs = 5 * 60 * 1000
+  const thirtyMinutesInMs = 30 * 60 * 1000
 
-  return now - lastActiveTime < fiveMinutesInMs
+  return now - lastActiveTime < thirtyMinutesInMs
 }
 
 /**

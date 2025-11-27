@@ -51,6 +51,14 @@ export async function GET(request: NextRequest) {
       ])
       .toArray()
 
+    // 현재 접속 사용자 수 (30분 이내)
+    const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000)
+    const onlineCount = await usersCollection.countDocuments({
+      isActive: true,
+      isBanned: false,
+      lastActive: { $gte: thirtyMinutesAgo },
+    })
+
     // 전체 사용자 통계
     const userStats = await usersCollection
       .aggregate([
@@ -167,6 +175,7 @@ export async function GET(request: NextRequest) {
           active: userStatsData.active?.[0]?.count || 0,
           inactive: userStatsData.inactive?.[0]?.count || 0,
           banned: userStatsData.banned?.[0]?.count || 0,
+          onlineUsers: onlineCount,
           totalUsers: (userStatsData.active?.[0]?.count || 0) + (userStatsData.inactive?.[0]?.count || 0),
           totalRemainingQuota: userStatsData.totalQuota?.[0]?.total || 0,
           avgDailyLimit: userStatsData.avgDailyLimit?.[0]?.avg ? Math.round(userStatsData.avgDailyLimit[0].avg) : 0,

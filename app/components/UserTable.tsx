@@ -289,9 +289,7 @@ export default function UserTable({
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="text-xs">
-                      ⚪ {user.lastActive
-                        ? `${Math.floor((Date.now() - new Date(user.lastActive).getTime()) / 60000)}분 전`
-                        : '미접속'}
+                      ⚪ 오프라인
                     </Badge>
                   )}
                 </TableCell>

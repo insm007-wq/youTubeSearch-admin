@@ -42,21 +42,45 @@ export default function AdminPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalUsers, setTotalUsers] = useState(0)
+  const [activeUsers, setActiveUsers] = useState(0)
+  const [deactivatedUsers, setDeactivatedUsers] = useState(0)
+  const [filterType, setFilterType] = useState<'all' | 'online' | 'active' | 'inactive'>('all')
 
   // 초기 사용자 목록 로드
   useEffect(() => {
     loadUsers()
+    loadStats()
   }, [])
 
-  const loadUsers = async (page: number = 1, query: string = '') => {
+  // 통계 정보 로드
+  const loadStats = async () => {
+    try {
+      const response = await fetch('/api/admin/stats')
+      const data = await response.json()
+
+      if (data.success && data.data.users) {
+        console.log(`📊 통계 로드: 활성=${data.data.users.active}, 비활성=${data.data.users.inactive}, 온라인=${data.data.users.onlineUsers}`)
+        setActiveUsers(data.data.users.active || 0)
+        setDeactivatedUsers(data.data.users.inactive || 0)
+        setOnlineUsers(data.data.users.onlineUsers || 0)
+      }
+    } catch (err) {
+      console.error('❌ 통계 로드 실패:', err)
+    }
+  }
+
+  const loadUsers = async (page: number = 1, query: string = '', filter: string = 'all') => {
     setIsLoading(true)
     setError('')
 
     try {
-      // ✅ 페이지와 검색어를 모두 포함한 URL 생성
+      // ✅ 페이지, 검색어, 필터를 모두 포함한 URL 생성
       let url = `/api/admin/users?page=${page}&limit=10`
       if (query && query.trim()) {
         url += `&q=${encodeURIComponent(query)}`
+      }
+      if (filter && filter !== 'all') {
+        url += `&filter=${filter}`
       }
 
       console.log(`🔍 사용자 로드 - url: ${url}`)
@@ -98,7 +122,15 @@ export default function AdminPage() {
     setSearchQuery(query)
     // ✅ 검색할 때 페이지 1로 초기화
     setCurrentPage(1)
-    await loadUsers(1, query)
+    await loadUsers(1, query, filterType)
+  }
+
+  // 카드 클릭 핸들러
+  const handleCardClick = async (filter: 'all' | 'online' | 'active' | 'inactive') => {
+    setFilterType(filter)
+    setCurrentPage(1)
+    setSearchQuery('')
+    await loadUsers(1, '', filter)
   }
 
   const handleEditClick = (user: User) => {
@@ -389,10 +421,8 @@ export default function AdminPage() {
     }
   }
 
-  // 통계 데이터
-  const activeUsers = users.filter((u) => u.isActive).length
-  const deactivatedUsers = users.filter((u) => !u.isActive).length
-  const totalRemaining = users.reduce((sum, u) => sum + (u.remainingLimit ?? 0), 0)
+  // 통계 데이터 (API에서 로드됨 - 전체 DB 기준)
+  // activeUsers, deactivatedUsers, totalRemaining은 state에서 관리됨
 
   const stats: StatCard[] = [
     {
@@ -418,12 +448,6 @@ export default function AdminPage() {
       label: '비활성 사용자',
       value: deactivatedUsers,
       color: 'bg-red-500/10 text-red-600 dark:text-red-400',
-    },
-    {
-      icon: <Zap className="w-5 h-5" />,
-      label: '전체 잔여량',
-      value: totalRemaining,
-      color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
     },
   ]
 
@@ -489,20 +513,31 @@ export default function AdminPage() {
 
         {/* 통계 카드 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat, idx) => (
-            <div
-              key={idx}
-              className="bg-white dark:bg-zinc-900 p-4 rounded-lg border hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
-                  <p className="text-2xl font-bold mt-2">{stat.value}</p>
+          {stats.map((stat, idx) => {
+            const filterMap = ['all', 'online', 'active', 'inactive']
+            const filter = filterMap[idx] as 'all' | 'online' | 'active' | 'inactive'
+            const isSelected = filterType === filter
+
+            return (
+              <div
+                key={idx}
+                onClick={() => handleCardClick(filter)}
+                className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                  isSelected
+                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md'
+                    : 'bg-white dark:bg-zinc-900 hover:shadow-md'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
+                    <p className="text-2xl font-bold mt-2">{stat.value}</p>
+                  </div>
+                  <div className={`p-2 rounded-lg ${stat.color}`}>{stat.icon}</div>
                 </div>
-                <div className={`p-2 rounded-lg ${stat.color}`}>{stat.icon}</div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* 사용자 테이블 */}
@@ -533,7 +568,7 @@ export default function AdminPage() {
               currentPage={currentPage}
               totalPages={totalPages}
               totalUsers={totalUsers}
-              onPageChange={(page) => loadUsers(page, searchQuery)}
+              onPageChange={(page) => loadUsers(page, searchQuery, filterType)}
             />
           </div>
         </div>

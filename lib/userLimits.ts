@@ -3,7 +3,8 @@ import { AdminUser } from '@/types/user'
 
 export async function getAllUsers(
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
+  filter: 'all' | 'online' | 'active' | 'inactive' = 'all'
 ): Promise<{ users: AdminUser[]; total: number; page: number; totalPages: number }> {
   const { db } = await connectToDatabase()
   const usersCollection = db.collection('users')
@@ -15,6 +16,10 @@ export async function getAllUsers(
 
   // ✅ Aggregation Pipeline으로 N+1 쿼리 제거
   const pipeline = [
+    // 0단계: 필터 적용
+    {
+      $match: getFilterMatch(filter)
+    },
     // 1단계: api_usage 컬렉션과 JOIN
     {
       $lookup: {
@@ -63,8 +68,8 @@ export async function getAllUsers(
         isActive: { $ifNull: ['$isActive', true] },
         isBanned: { $ifNull: ['$isBanned', false] },
         isOnline: { $ifNull: ['$isOnline', false] },
-        lastActive: { $ifNull: ['$lastActive', new Date()] },
-        lastLogin: { $ifNull: ['$lastLogin', new Date()] },
+        lastActive: '$lastActive',
+        lastLogin: '$lastLogin',
         provider: { $ifNull: ['$provider', null] },
         createdAt: 1,
         updatedAt: 1
@@ -99,7 +104,8 @@ export async function getAllUsers(
 export async function searchUsers(
   query: string,
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
+  filter: 'all' | 'online' | 'active' | 'inactive' = 'all'
 ): Promise<{ users: AdminUser[]; total: number; page: number; totalPages: number }> {
   const { db } = await connectToDatabase()
   const usersCollection = db.collection('users')
@@ -110,15 +116,20 @@ export async function searchUsers(
   const todayStr = kstDate.toISOString().split('T')[0]
 
   const searchFilter = {
-    $or: [
-      { email: { $regex: query, $options: 'i' } },
-      { name: { $regex: query, $options: 'i' } },
+    $and: [
+      {
+        $or: [
+          { email: { $regex: query, $options: 'i' } },
+          { name: { $regex: query, $options: 'i' } },
+        ],
+      },
+      getFilterMatch(filter)
     ],
   }
 
   // ✅ Aggregation Pipeline으로 N+1 쿼리 제거
   const pipeline = [
-    // 1단계: 검색 필터
+    // 1단계: 검색 필터 + 상태 필터
     { $match: searchFilter },
 
     // 2단계: api_usage 컬렉션과 JOIN
@@ -169,8 +180,8 @@ export async function searchUsers(
         isActive: { $ifNull: ['$isActive', true] },
         isBanned: { $ifNull: ['$isBanned', false] },
         isOnline: { $ifNull: ['$isOnline', false] },
-        lastActive: { $ifNull: ['$lastActive', new Date()] },
-        lastLogin: { $ifNull: ['$lastLogin', new Date()] },
+        lastActive: '$lastActive',
+        lastLogin: '$lastLogin',
         provider: { $ifNull: ['$provider', null] },
         createdAt: 1,
         updatedAt: 1
@@ -631,5 +642,34 @@ export async function unbanUser(
     provider: result.provider || undefined,
     createdAt: result.createdAt,
     updatedAt: result.updatedAt,
+  }
+}
+
+/**
+ * 필터에 따른 MongoDB match 조건 생성
+ */
+function getFilterMatch(filter: 'all' | 'online' | 'active' | 'inactive'): any {
+  const now = new Date()
+  const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000)
+
+  switch (filter) {
+    case 'online':
+      return {
+        isActive: true,
+        isBanned: false,
+        lastActive: { $gte: thirtyMinutesAgo }
+      }
+    case 'active':
+      return {
+        isActive: true,
+        isBanned: false
+      }
+    case 'inactive':
+      return {
+        isActive: false
+      }
+    case 'all':
+    default:
+      return {}
   }
 }
