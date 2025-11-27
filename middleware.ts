@@ -17,14 +17,14 @@ export default auth((req) => {
 
   // 로그인되지 않았고 공개 경로가 아니면 로그인 페이지로
   if (!isLoggedIn && !isPublicPath) {
-    const loginUrl = new URL('/login', req.url)
+    const loginUrl = new URL('/login', nextUrl.origin)
     loginUrl.searchParams.set('callbackUrl', nextUrl.pathname)
     return NextResponse.redirect(loginUrl)
   }
 
   // 로그인했는데 로그인 페이지 접근 시 홈으로
   if (isLoggedIn && isPublicPath) {
-    return NextResponse.redirect(new URL('/', req.url))
+    return NextResponse.redirect(new URL('/', nextUrl.origin))
   }
 
   return NextResponse.next()
