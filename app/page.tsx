@@ -1,17 +1,20 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { AlertCircle, Users, UserCheck, UserX, Zap, Settings2 } from 'lucide-react'
+import Link from 'next/link'
+import { AlertCircle, Users, UserCheck, UserX, Zap, Settings2, UserCog, FileText, BarChart3 } from 'lucide-react'
 import SearchBar from './components/SearchBar'
 import UserTable from './components/UserTable'
 import EditUserModal from './components/EditUserModal'
 import EditDailyLimitModal from './components/EditDailyLimitModal'
 import EditRemainingLimitModal from './components/EditRemainingLimitModal'
 import BulkUpdateLimitModal from './components/BulkUpdateLimitModal'
+import BanUserModal from './components/BanUserModal'
 import { AdminUser } from '@/types/user'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { getOnlineUsersAction } from '@/app/actions'
 
 type User = AdminUser
 
@@ -33,6 +36,9 @@ export default function AdminPage() {
   const [showRemainingModal, setShowRemainingModal] = useState(false)
   const [showBulkModal, setShowBulkModal] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [onlineUsers, setOnlineUsers] = useState(0)
+  const [showBanModal, setShowBanModal] = useState(false)
+  const [banningUser, setBanningUser] = useState<User | null>(null)
 
   // 초기 사용자 목록 로드
   useEffect(() => {
@@ -52,6 +58,14 @@ export default function AdminPage() {
       }
 
       setUsers(data.data)
+
+      // ✅ 현재 접속자 수 조회
+      try {
+        const onlineCount = await getOnlineUsersAction()
+        setOnlineUsers(onlineCount)
+      } catch (err) {
+        console.error('❌ 접속자 수 조회 실패:', err)
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
       setError(errorMsg)
@@ -321,6 +335,67 @@ export default function AdminPage() {
     }
   }
 
+  // ✅ 사용자 차단
+  const handleBan = (user: User) => {
+    setBanningUser(user)
+    setShowBanModal(true)
+  }
+
+  const handleBanConfirm = async (reason: string) => {
+    if (!banningUser) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/admin/users/${banningUser.email}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ban', bannedReason: reason }),
+      })
+
+      const data = await response.json()
+      if (!data.success) {
+        throw new Error(data.error || '차단 실패')
+      }
+
+      setUsers(users.map((u) => (u.email === banningUser.email ? { ...u, isBanned: true } : u)))
+      toast.success(`${banningUser.name || banningUser.email}을(를) 차단했습니다`)
+      setBanningUser(null)
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
+      setError(errorMsg)
+      toast.error('차단 실패', { description: errorMsg })
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // ✅ 사용자 차단 해제
+  const handleUnban = async (user: User) => {
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/admin/users/${user.email}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unban' }),
+      })
+
+      const data = await response.json()
+      if (!data.success) {
+        throw new Error(data.error || '차단 해제 실패')
+      }
+
+      setUsers(users.map((u) => (u.email === user.email ? { ...u, isBanned: false } : u)))
+      toast.success(`${user.name || user.email}을(를) 차단 해제했습니다`)
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
+      setError(errorMsg)
+      toast.error('차단 해제 실패', { description: errorMsg })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // 통계 데이터
   const activeUsers = users.filter((u) => u.isActive).length
   const deactivatedUsers = users.filter((u) => !u.isActive).length
@@ -332,6 +407,12 @@ export default function AdminPage() {
       label: '전체 사용자',
       value: users.length,
       color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+    },
+    {
+      icon: <UserCog className="w-5 h-5" />,
+      label: '현재 접속자',
+      value: onlineUsers,
+      color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
     },
     {
       icon: <UserCheck className="w-5 h-5" />,
@@ -358,9 +439,25 @@ export default function AdminPage() {
       {/* 헤더 */}
       <div className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight">YouTube 검색 관리자</h1>
-            <p className="text-muted-foreground">사용자 관리 및 할당량 설정 대시보드</p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight">YouTube 검색 관리자</h1>
+              <p className="text-muted-foreground">사용자 관리 및 할당량 설정 대시보드</p>
+            </div>
+            <div className="flex gap-2">
+              <Link href="/stats">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  통계
+                </Button>
+              </Link>
+              <Link href="/logs">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <FileText className="w-4 h-4" />
+                  감사 로그
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -433,6 +530,8 @@ export default function AdminPage() {
               onResetRemaining={handleResetRemaining}
               onDeactivate={handleDeactivate}
               onActivate={handleActivate}
+              onBan={handleBan}
+              onUnban={handleUnban}
               isLoading={isLoading}
             />
           </div>
@@ -484,6 +583,18 @@ export default function AdminPage() {
           loadUsers()
           setShowBulkModal(false)
         }}
+      />
+
+      {/* ✅ 차단 모달 */}
+      <BanUserModal
+        isOpen={showBanModal}
+        userEmail={banningUser?.email}
+        userName={banningUser?.name}
+        onClose={() => {
+          setShowBanModal(false)
+          setBanningUser(null)
+        }}
+        onConfirm={handleBanConfirm}
       />
     </div>
   )

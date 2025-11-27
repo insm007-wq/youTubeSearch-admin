@@ -1,6 +1,10 @@
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
+  // ✅ Turbopack configuration
+  turbopack: {
+    resolveExtensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+  },
   // ✅ 보안 헤더 추가
   async headers() {
     return [
