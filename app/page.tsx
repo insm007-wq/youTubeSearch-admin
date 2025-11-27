@@ -39,19 +39,28 @@ export default function AdminPage() {
   const [onlineUsers, setOnlineUsers] = useState(0)
   const [showBanModal, setShowBanModal] = useState(false)
   const [banningUser, setBanningUser] = useState<User | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalUsers, setTotalUsers] = useState(0)
 
   // 초기 사용자 목록 로드
   useEffect(() => {
     loadUsers()
   }, [])
 
-  const loadUsers = async () => {
+  const loadUsers = async (page: number = 1, query: string = '') => {
     setIsLoading(true)
     setError('')
 
     try {
-      const response = await fetch('/api/admin/users')
+      // ✅ 페이지와 검색어를 모두 포함한 URL 생성
+      let url = `/api/admin/users?page=${page}&limit=10`
+      if (query && query.trim()) {
+        url += `&q=${encodeURIComponent(query)}`
+      }
+
+      console.log(`🔍 사용자 로드 - url: ${url}`)
+      const response = await fetch(url)
       const data = await response.json()
 
       if (!data.success) {
@@ -59,6 +68,11 @@ export default function AdminPage() {
       }
 
       setUsers(data.data)
+      setCurrentPage(data.pagination?.page || page)
+      setTotalPages(data.pagination?.totalPages || 1)
+      setTotalUsers(data.pagination?.total || 0)
+
+      console.log(`📊 로드 완료 - 페이지: ${data.pagination?.page}, 전체: ${data.pagination?.total}명`)
 
       // ✅ 현재 접속자 수 조회
       try {
@@ -76,49 +90,15 @@ export default function AdminPage() {
     }
   }
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true)
-    try {
-      await loadUsers()
-      toast.success('새로 고침되었습니다')
-    } catch (err) {
-      console.error('새로 고침 실패:', err)
-    } finally {
-      setIsRefreshing(false)
-    }
+  const handleRefresh = () => {
+    window.location.reload()
   }
 
   const handleSearch = async (query: string) => {
-    setIsLoading(true)
-    setError('')
-
-    try {
-      const url = query ? `/api/admin/users?q=${encodeURIComponent(query)}` : '/api/admin/users'
-      console.log(`🔍 검색 시작 - query: "${query}", url: ${url}`)
-      const response = await fetch(url)
-      const data = await response.json()
-
-      console.log(`📊 응답 받음:`, data)
-
-      if (!data.success) {
-        throw new Error(data.error || '검색에 실패했습니다')
-      }
-
-      console.log(`✅ 사용자 수: ${data.data.length}`)
-      console.log(`📋 첫 번째 사용자:`, data.data[0])
-
-      setUsers(data.data)
-      if (query) {
-        toast.success(`${data.data.length}개의 사용자를 찾았습니다`)
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : '오류가 발생했습니다'
-      setError(errorMsg)
-      console.error(`❌ 검색 오류:`, err)
-      toast.error('검색 실패', { description: errorMsg })
-    } finally {
-      setIsLoading(false)
-    }
+    setSearchQuery(query)
+    // ✅ 검색할 때 페이지 1로 초기화
+    setCurrentPage(1)
+    await loadUsers(1, query)
   }
 
   const handleEditClick = (user: User) => {
@@ -418,7 +398,7 @@ export default function AdminPage() {
     {
       icon: <Users className="w-5 h-5" />,
       label: '전체 사용자',
-      value: users.length,
+      value: totalUsers,
       color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
     },
     {
@@ -550,6 +530,10 @@ export default function AdminPage() {
               onBan={handleBan}
               onUnban={handleUnban}
               isLoading={isLoading}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalUsers={totalUsers}
+              onPageChange={(page) => loadUsers(page, searchQuery)}
             />
           </div>
         </div>

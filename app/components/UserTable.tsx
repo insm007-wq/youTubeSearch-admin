@@ -34,6 +34,10 @@ interface UserTableProps {
   onBan: (user: AdminUser) => void
   onUnban: (user: AdminUser) => void
   isLoading?: boolean
+  currentPage?: number
+  totalPages?: number
+  totalUsers?: number
+  onPageChange?: (page: number) => void
 }
 
 type SortField = 'email' | 'name' | 'dailyLimit' | 'remainingLimit' | 'createdAt'
@@ -49,12 +53,29 @@ export default function UserTable({
   onBan,
   onUnban,
   isLoading = false,
+  currentPage: externalCurrentPage,
+  totalPages: externalTotalPages,
+  totalUsers: externalTotalUsers = 0,
+  onPageChange,
 }: UserTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [sortField, setSortField] = useState<SortField>('email')
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage, setCurrentPageInternal] = useState(1)
   const itemsPerPage = 10
+
+  // ✅ 백엔드 페이지네이션 또는 클라이언트 페이지네이션 모드 선택
+  const isBackendPagination = externalCurrentPage !== undefined && externalTotalPages !== undefined && onPageChange !== undefined
+  const displayCurrentPage = isBackendPagination ? externalCurrentPage : currentPage
+  const displayTotalPages = isBackendPagination ? externalTotalPages : totalPages
+
+  const setCurrentPage = (page: number) => {
+    if (isBackendPagination && onPageChange) {
+      onPageChange(page)
+    } else {
+      setCurrentPageInternal(page)
+    }
+  }
 
   const formatDate = (dateValue?: string | Date) => {
     if (!dateValue) return '-'
@@ -93,12 +114,17 @@ export default function UserTable({
     return sorted
   }, [users, sortField, sortOrder])
 
-  // 페이지네이션
-  const totalPages = Math.ceil(sortedUsers.length / itemsPerPage)
+  // 페이지네이션 (백엔드 페이지네이션 사용 시 정렬/필터링 스킵)
+  const computedTotalPages = isBackendPagination ? externalTotalPages || 1 : Math.ceil(sortedUsers.length / itemsPerPage)
   const paginatedUsers = useMemo(() => {
+    if (isBackendPagination) {
+      // 백엔드에서 이미 페이지네이션된 데이터를 받으므로 그대로 반환
+      return sortedUsers
+    }
+    // 클라이언트 페이지네이션
     const start = (currentPage - 1) * itemsPerPage
     return sortedUsers.slice(start, start + itemsPerPage)
-  }, [sortedUsers, currentPage])
+  }, [sortedUsers, currentPage, isBackendPagination])
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -369,28 +395,36 @@ export default function UserTable({
       )}
 
       {/* 페이지네이션 */}
-      {totalPages > 1 && (
+      {computedTotalPages > 1 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            전체 {sortedUsers.length}개 중 {(currentPage - 1) * itemsPerPage + 1} ~{' '}
-            {Math.min(currentPage * itemsPerPage, sortedUsers.length)}개 표시
+            {isBackendPagination ? (
+              <>
+                전체 {externalCurrentPage && externalTotalPages ? `${externalTotalUsers || 0}개 중 표시` : '로딩 중...'}
+              </>
+            ) : (
+              <>
+                전체 {sortedUsers.length}개 중 {(displayCurrentPage - 1) * itemsPerPage + 1} ~{' '}
+                {Math.min(displayCurrentPage * itemsPerPage, sortedUsers.length)}개 표시
+              </>
+            )}
           </div>
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(Math.max(1, displayCurrentPage - 1))}
+              disabled={displayCurrentPage === 1}
             >
               이전
             </Button>
             <div className="flex items-center gap-1">
               {Array.from({ length: 5 }).map((_, i) => {
-                const pageGroup = Math.floor((currentPage - 1) / 5)
+                const pageGroup = Math.floor((displayCurrentPage - 1) / 5)
                 const page = pageGroup * 5 + i + 1
-                if (page > totalPages) return null
+                if (page > displayTotalPages) return null
 
-                const isCurrentPage = page === currentPage
+                const isCurrentPage = page === displayCurrentPage
                 return (
                   <Button
                     key={page}
@@ -407,8 +441,8 @@ export default function UserTable({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(Math.min(displayTotalPages, displayCurrentPage + 1))}
+              disabled={displayCurrentPage === displayTotalPages}
             >
               다음
             </Button>
