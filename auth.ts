@@ -19,7 +19,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = (credentials.email as string).trim().toLowerCase()
         const password = (credentials.password as string).trim()
 
-        // 하드코딩된 관리자 계정 (환경변수 문제 우회)
+        // 하드코딩된 관리자 계정
         const admins = [
           {
             email: 'insm007@naver.com',
@@ -31,16 +31,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         ]
 
-        console.log('🔍 로그인 시도:', { email })
-
         for (const admin of admins) {
           if (admin.email === email) {
-            console.log('✅ 이메일 매칭됨:', email)
             const isValid = await compare(password, admin.hashedPassword)
-            console.log('🔐 비밀번호 검증:', { isValid })
 
             if (isValid) {
-              console.log('🎉 로그인 성공!')
               return {
                 id: email,
                 email: email,
@@ -48,7 +43,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 role: 'admin',
               }
             } else {
-              console.log('❌ 비밀번호 불일치')
               throw new Error('비밀번호가 틀렸습니다')
             }
           }
