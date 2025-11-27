@@ -39,6 +39,7 @@ export default function AdminPage() {
   const [onlineUsers, setOnlineUsers] = useState(0)
   const [showBanModal, setShowBanModal] = useState(false)
   const [banningUser, setBanningUser] = useState<User | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   // 초기 사용자 목록 로드
   useEffect(() => {
@@ -72,6 +73,18 @@ export default function AdminPage() {
       toast.error('사용자 로드 실패', { description: errorMsg })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      await loadUsers()
+      toast.success('새로 고침되었습니다')
+    } catch (err) {
+      console.error('새로 고침 실패:', err)
+    } finally {
+      setIsRefreshing(false)
     }
   }
 
@@ -440,8 +453,12 @@ export default function AdminPage() {
       <div className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between mb-4">
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold tracking-tight">YouTube 검색 관리자</h1>
+            <div
+              className="space-y-2 cursor-pointer hover:opacity-75 transition-opacity"
+              onClick={handleRefresh}
+              title="클릭하여 새로 고침"
+            >
+              <h1 className="text-3xl font-bold tracking-tight">유튜브 스카웃 관리자</h1>
               <p className="text-muted-foreground">사용자 관리 및 할당량 설정 대시보드</p>
             </div>
             <div className="flex gap-2">
