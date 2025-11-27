@@ -17,13 +17,24 @@ export default auth((req) => {
 
   // 로그인되지 않았고 공개 경로가 아니면 로그인 페이지로
   if (!isLoggedIn && !isPublicPath) {
-    const loginPath = `/login?callbackUrl=${encodeURIComponent(pathname)}`
-    return NextResponse.redirect(loginPath, { status: 307 })
+    try {
+      const url = new URL('/login', req.nextUrl.clone())
+      url.searchParams.set('callbackUrl', pathname)
+      return NextResponse.redirect(url)
+    } catch (error) {
+      console.error('Redirect error:', error)
+      return NextResponse.next()
+    }
   }
 
   // 로그인했는데 로그인 페이지 접근 시 홈으로
   if (isLoggedIn && isPublicPath) {
-    return NextResponse.redirect('/', { status: 307 })
+    try {
+      return NextResponse.redirect(new URL('/', req.nextUrl.clone()))
+    } catch (error) {
+      console.error('Redirect error:', error)
+      return NextResponse.next()
+    }
   }
 
   return NextResponse.next()
