@@ -2,13 +2,17 @@ import { auth } from '@/auth'
 import { NextResponse } from 'next/server'
 
 export default auth((req) => {
-  const { nextUrl } = req
+  if (!req) {
+    return NextResponse.next()
+  }
+
+  const pathname = req.nextUrl?.pathname || '/'
   const isLoggedIn = !!req.auth
 
-  const isPublicPath = nextUrl.pathname === '/login'
-  const isApiRoute = nextUrl.pathname.startsWith('/api/')
-  const isStaticFile = nextUrl.pathname.startsWith('/_next') ||
-                       nextUrl.pathname.startsWith('/favicon.ico')
+  const isPublicPath = pathname === '/login'
+  const isApiRoute = pathname.startsWith('/api/')
+  const isStaticFile = pathname.startsWith('/_next') ||
+                       pathname.startsWith('/favicon.ico')
 
   // 정적 파일과 API는 통과
   if (isStaticFile || isApiRoute) {
@@ -17,9 +21,9 @@ export default auth((req) => {
 
   // 로그인되지 않았고 공개 경로가 아니면 로그인 페이지로
   if (!isLoggedIn && !isPublicPath) {
-    const loginUrl = new URL('/login', req.url)
-    loginUrl.searchParams.set('callbackUrl', nextUrl.pathname)
-    return NextResponse.redirect(loginUrl)
+    const url = new URL('/login', req.url)
+    url.searchParams.set('callbackUrl', pathname)
+    return NextResponse.redirect(url)
   }
 
   // 로그인했는데 로그인 페이지 접근 시 홈으로
