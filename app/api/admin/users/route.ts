@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get('q')
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50')))
-    const filter = (searchParams.get('filter') || 'all') as 'all' | 'online' | 'active' | 'inactive'
+    const filter = (searchParams.get('filter') || 'all') as 'all' | 'online' | 'active' | 'inactive' | 'depleted'
 
     console.log(`🔵 GET /api/admin/users - query: "${query}", page: ${page}, limit: ${limit}, filter: ${filter}`)
 

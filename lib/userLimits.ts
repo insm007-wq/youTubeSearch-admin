@@ -4,7 +4,7 @@ import { AdminUser } from '@/types/user'
 export async function getAllUsers(
   page: number = 1,
   limit: number = 50,
-  filter: 'all' | 'online' | 'active' | 'inactive' = 'all'
+  filter: 'all' | 'online' | 'active' | 'inactive' | 'depleted' = 'all'
 ): Promise<{ users: AdminUser[]; total: number; page: number; totalPages: number }> {
   const { db } = await connectToDatabase()
   const usersCollection = db.collection('users')
@@ -105,7 +105,7 @@ export async function searchUsers(
   query: string,
   page: number = 1,
   limit: number = 50,
-  filter: 'all' | 'online' | 'active' | 'inactive' = 'all'
+  filter: 'all' | 'online' | 'active' | 'inactive' | 'depleted' = 'all'
 ): Promise<{ users: AdminUser[]; total: number; page: number; totalPages: number }> {
   const { db } = await connectToDatabase()
   const usersCollection = db.collection('users')
@@ -648,7 +648,7 @@ export async function unbanUser(
 /**
  * 필터에 따른 MongoDB match 조건 생성
  */
-function getFilterMatch(filter: 'all' | 'online' | 'active' | 'inactive'): any {
+function getFilterMatch(filter: 'all' | 'online' | 'active' | 'inactive' | 'depleted'): any {
   const now = new Date()
   const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000)
 
@@ -667,6 +667,10 @@ function getFilterMatch(filter: 'all' | 'online' | 'active' | 'inactive'): any {
     case 'inactive':
       return {
         isActive: false
+      }
+    case 'depleted':
+      return {
+        remainingLimit: { $eq: 0 }
       }
     case 'all':
     default:

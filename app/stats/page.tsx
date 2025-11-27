@@ -97,14 +97,6 @@ export default function StatsPage() {
     )
   }
 
-  // 할당량 분포 데이터 준비
-  const quotaDistributionData = [
-    { name: '0-25% 사용', value: stats.quotaDistribution.veryLow },
-    { name: '25-50% 사용', value: stats.quotaDistribution.low },
-    { name: '50-75% 사용', value: stats.quotaDistribution.medium },
-    { name: '75-100% 사용', value: stats.quotaDistribution.high },
-  ]
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/30">
       {/* 헤더 */}
@@ -146,38 +138,22 @@ export default function StatsPage() {
         {/* 오늘의 통계 */}
         <div>
           <h2 className="text-xl font-bold mb-4">오늘의 통계</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
             <StatsCard
               icon={<Search className="w-6 h-6" />}
               label="총 검색 수"
               value={stats.today.totalSearches}
-              subLabel="기본 할당량"
-              subValue={stats.today.limit.toString()}
+              subLabel="모든 사용자 누적"
+              subValue={`${stats.today.totalUsers}명 사용`}
               color="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
             />
             <StatsCard
               icon={<Users className="w-6 h-6" />}
-              label="활성 사용자"
-              value={stats.today.totalUsers}
-              subLabel="평균/사용자"
-              subValue={stats.today.avgPerUser.toFixed(1)}
+              label="평균 검색/사용자"
+              value={stats.today.avgPerUser.toFixed(1)}
+              subLabel="1일 평균"
+              subValue={`${stats.today.totalUsers}명 중`}
               color="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-            />
-            <StatsCard
-              icon={<TrendingUp className="w-6 h-6" />}
-              label="할당량 활용"
-              value={`${stats.users.totalUsers}명`}
-              subLabel="전체 사용자"
-              subValue={`${stats.users.active}명 활성`}
-              color="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-            />
-            <StatsCard
-              icon={<Zap className="w-6 h-6" />}
-              label="잔여 할당량"
-              value={stats.users.totalRemainingQuota}
-              subLabel="평균 할당"
-              subValue={stats.users.avgDailyLimit.toString()}
-              color="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
             />
           </div>
         </div>
@@ -210,7 +186,7 @@ export default function StatsPage() {
         </div>
 
         {/* 차트 섹션 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
           {/* 7일 추세 */}
           <UsageChart
             type="line"
@@ -219,14 +195,6 @@ export default function StatsPage() {
             dataKey="totalSearches"
             dataKey2="totalUsers"
             colors={['#3b82f6', '#10b981']}
-          />
-
-          {/* 할당량 분포 */}
-          <UsageChart
-            type="pie"
-            data={quotaDistributionData}
-            title="할당량 사용률 분포"
-            colors={['#10b981', '#f59e0b', '#ef4444', '#8b5cf6']}
           />
         </div>
 

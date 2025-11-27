@@ -59,6 +59,11 @@ export async function GET(request: NextRequest) {
       lastActive: { $gte: thirtyMinutesAgo },
     })
 
+    // 할당량 소진 사용자 수
+    const depletedUsers = await usersCollection.countDocuments({
+      remainingLimit: { $eq: 0 }
+    })
+
     // 전체 사용자 통계
     const userStats = await usersCollection
       .aggregate([
@@ -176,6 +181,7 @@ export async function GET(request: NextRequest) {
           inactive: userStatsData.inactive?.[0]?.count || 0,
           banned: userStatsData.banned?.[0]?.count || 0,
           onlineUsers: onlineCount,
+          depletedUsers: depletedUsers,
           totalUsers: (userStatsData.active?.[0]?.count || 0) + (userStatsData.inactive?.[0]?.count || 0),
           totalRemainingQuota: userStatsData.totalQuota?.[0]?.total || 0,
           avgDailyLimit: userStatsData.avgDailyLimit?.[0]?.avg ? Math.round(userStatsData.avgDailyLimit[0].avg) : 0,

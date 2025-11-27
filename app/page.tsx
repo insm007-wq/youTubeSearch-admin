@@ -44,7 +44,8 @@ export default function AdminPage() {
   const [totalUsers, setTotalUsers] = useState(0)
   const [activeUsers, setActiveUsers] = useState(0)
   const [deactivatedUsers, setDeactivatedUsers] = useState(0)
-  const [filterType, setFilterType] = useState<'all' | 'online' | 'active' | 'inactive'>('all')
+  const [depletedUsers, setDepletedUsers] = useState(0)
+  const [filterType, setFilterType] = useState<'all' | 'online' | 'active' | 'inactive' | 'depleted'>('all')
 
   // 초기 사용자 목록 로드
   useEffect(() => {
@@ -59,10 +60,11 @@ export default function AdminPage() {
       const data = await response.json()
 
       if (data.success && data.data.users) {
-        console.log(`📊 통계 로드: 활성=${data.data.users.active}, 비활성=${data.data.users.inactive}, 온라인=${data.data.users.onlineUsers}`)
+        console.log(`📊 통계 로드: 활성=${data.data.users.active}, 비활성=${data.data.users.inactive}, 온라인=${data.data.users.onlineUsers}, 소진=${data.data.users.depletedUsers}`)
         setActiveUsers(data.data.users.active || 0)
         setDeactivatedUsers(data.data.users.inactive || 0)
         setOnlineUsers(data.data.users.onlineUsers || 0)
+        setDepletedUsers(data.data.users.depletedUsers || 0)
       }
     } catch (err) {
       console.error('❌ 통계 로드 실패:', err)
@@ -449,6 +451,12 @@ export default function AdminPage() {
       value: deactivatedUsers,
       color: 'bg-red-500/10 text-red-600 dark:text-red-400',
     },
+    {
+      icon: <AlertCircle className="w-5 h-5" />,
+      label: '할당량 소진',
+      value: depletedUsers,
+      color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+    },
   ]
 
   return (
@@ -514,8 +522,8 @@ export default function AdminPage() {
         {/* 통계 카드 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, idx) => {
-            const filterMap = ['all', 'online', 'active', 'inactive']
-            const filter = filterMap[idx] as 'all' | 'online' | 'active' | 'inactive'
+            const filterMap = ['all', 'online', 'active', 'inactive', 'depleted']
+            const filter = filterMap[idx] as 'all' | 'online' | 'active' | 'inactive' | 'depleted'
             const isSelected = filterType === filter
 
             return (
