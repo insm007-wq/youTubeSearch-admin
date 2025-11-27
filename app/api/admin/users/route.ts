@@ -6,28 +6,33 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const query = searchParams.get('q')
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50')))
 
-    console.log(`🔵 GET /api/admin/users - query: "${query}"`)
+    console.log(`🔵 GET /api/admin/users - query: "${query}", page: ${page}, limit: ${limit}`)
 
-    let users
+    let result
 
     if (query && query.trim()) {
       console.log(`🔍 검색 수행 - 검색어: "${query}"`)
-      users = await searchUsers(query)
-      console.log(`📊 검색 결과: ${users.length}명`)
-      if (users.length > 0) {
-        console.log(`📋 첫 번째 결과:`, users[0])
-      }
+      result = await searchUsers(query, page, limit)
+      console.log(`📊 검색 결과: ${result.users.length}명 (전체: ${result.total}명)`)
     } else {
       console.log(`📋 전체 사용자 조회`)
-      users = await getAllUsers()
-      console.log(`📊 전체 사용자: ${users.length}명`)
+      result = await getAllUsers(page, limit)
+      console.log(`📊 전체 사용자: ${result.users.length}명 (전체: ${result.total}명, 페이지: ${result.page}/${result.totalPages})`)
     }
 
     return NextResponse.json({
       success: true,
-      data: users,
-      count: users.length,
+      data: result.users,
+      count: result.users.length,
+      pagination: {
+        page: result.page,
+        limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
     })
   } catch (error) {
     console.error('Failed to fetch users:', error)
@@ -73,10 +78,6 @@ export async function POST(request: NextRequest) {
     const targetUsers = await usersCollection.find(filter).toArray()
     console.log(`📊 대상 사용자: ${targetUsers.length}명`)
 
-    // 일괄 업데이트
-    let updated = 0
-    const results = []
-
     // KST 기준 오늘 날짜 계산
     const today = new Date()
     const kstDate = new Date(today.getTime() + 9 * 60 * 60 * 1000)
@@ -84,51 +85,57 @@ export async function POST(request: NextRequest) {
 
     const apiUsageCollection = db.collection('api_usage')
 
-    for (const user of targetUsers) {
-      try {
-        // api_usage에서 오늘 사용량 조회
-        const apiUsage = await apiUsageCollection.findOne({
-          email: user.email,
-          date: todayStr
-        })
+    // ✅ 1단계: 모든 대상 사용자의 api_usage를 한 번에 조회
+    const targetEmails = targetUsers.map(u => u.email)
+    const apiUsageRecords = await apiUsageCollection
+      .find({
+        email: { $in: targetEmails },
+        date: todayStr
+      })
+      .toArray()
 
-        const todayUsed = apiUsage?.count ?? 0
-        const calculatedRemaining = Math.max(0, dailyLimit - todayUsed)
+    // 2단계: Map으로 변환 (O(1) 조회)
+    const usageMap = new Map(
+      apiUsageRecords.map(r => [r.email, r.count || 0])
+    )
 
-        const result = await usersCollection.updateOne(
-          { email: user.email },
-          {
+    // 3단계: bulk 작업 배열 생성
+    const bulkOps = targetUsers.map(user => {
+      const todayUsed = usageMap.get(user.email) || 0
+      const calculatedRemaining = Math.max(0, dailyLimit - todayUsed)
+
+      return {
+        updateOne: {
+          filter: { email: user.email },
+          update: {
             $set: {
               dailyLimit,
-              remainingLimit: calculatedRemaining,  // ✅ 실제 사용량 반영
+              remainingLimit: calculatedRemaining,
               lastResetDate: todayStr,
               updatedAt: new Date(),
             },
-            $unset: {
-              todayUsed: ""  // ✅ todayUsed 필드 제거
-            }
           }
-        )
-
-        if (result.modifiedCount > 0) {
-          updated++
-          console.log(`✅ ${user.email} → dailyLimit: ${dailyLimit}, used: ${todayUsed}, remaining: ${calculatedRemaining}`)
-          results.push({
-            email: user.email,
-            status: 'success',
-            dailyLimit,
-            remainingLimit: calculatedRemaining,
-          })
         }
-      } catch (error) {
-        console.error(`❌ ${user.email} 업데이트 실패:`, error)
-        results.push({
-          email: user.email,
-          status: 'failed',
-          error: error instanceof Error ? error.message : '알 수 없는 오류',
-        })
       }
-    }
+    })
+
+    // 4단계: 단일 bulkWrite 실행
+    const bulkResult = await usersCollection.bulkWrite(bulkOps, { ordered: false })
+    console.log(`✅ ${bulkResult.modifiedCount}명 업데이트 완료`)
+
+    // 결과 생성
+    const results = targetUsers.map((user, index) => {
+      const todayUsed = usageMap.get(user.email) || 0
+      const calculatedRemaining = Math.max(0, dailyLimit - todayUsed)
+      return {
+        email: user.email,
+        status: 'success',
+        dailyLimit,
+        remainingLimit: calculatedRemaining,
+        todayUsed,
+      }
+    })
+    const updated = bulkResult.modifiedCount
 
     return NextResponse.json({
       success: true,

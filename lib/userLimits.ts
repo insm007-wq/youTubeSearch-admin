@@ -1,56 +1,108 @@
 import { connectToDatabase } from './mongodb'
 import { AdminUser } from '@/types/user'
 
-export async function getAllUsers(): Promise<AdminUser[]> {
+export async function getAllUsers(
+  page: number = 1,
+  limit: number = 50
+): Promise<{ users: AdminUser[]; total: number; page: number; totalPages: number }> {
   const { db } = await connectToDatabase()
   const usersCollection = db.collection('users')
-  const apiUsageCollection = db.collection('api_usage')
 
   // KST 기준 오늘 날짜
   const today = new Date()
   const kstDate = new Date(today.getTime() + 9 * 60 * 60 * 1000)
   const todayStr = kstDate.toISOString().split('T')[0]
 
-  const users = await usersCollection
-    .find({})
-    .sort({ createdAt: -1 })
-    .toArray()
+  // ✅ Aggregation Pipeline으로 N+1 쿼리 제거
+  const pipeline = [
+    // 1단계: api_usage 컬렉션과 JOIN
+    {
+      $lookup: {
+        from: 'api_usage',
+        let: { userEmail: '$email' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$email', '$$userEmail'] },
+                  { $eq: ['$date', todayStr] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'apiUsageData'
+      }
+    },
 
-  return Promise.all(users.map(async (user: any) => {
-    // api_usage에서 오늘 사용량 조회
-    const apiUsage = await apiUsageCollection.findOne({
-      email: user.email,
-      date: todayStr
-    })
+    // 2단계: 필드 변환 및 계산
+    {
+      $project: {
+        email: 1,
+        name: { $ifNull: ['$name', null] },
+        image: { $ifNull: ['$image', null] },
+        dailyLimit: { $ifNull: ['$dailyLimit', 20] },
+        todayUsed: {
+          $ifNull: [{ $arrayElemAt: ['$apiUsageData.count', 0] }, 0]
+        },
+        remainingLimit: {
+          $max: [
+            0,
+            {
+              $subtract: [
+                { $ifNull: ['$dailyLimit', 20] },
+                { $ifNull: [{ $arrayElemAt: ['$apiUsageData.count', 0] }, 0] }
+              ]
+            }
+          ]
+        },
+        lastResetDate: {
+          $ifNull: ['$lastResetDate', todayStr]
+        },
+        isActive: { $ifNull: ['$isActive', true] },
+        isBanned: { $ifNull: ['$isBanned', false] },
+        isOnline: { $ifNull: ['$isOnline', false] },
+        lastActive: { $ifNull: ['$lastActive', new Date()] },
+        lastLogin: { $ifNull: ['$lastLogin', new Date()] },
+        provider: { $ifNull: ['$provider', null] },
+        createdAt: 1,
+        updatedAt: 1
+      }
+    },
 
-    const todayUsed = apiUsage?.count ?? 0
-    const dailyLimit = user.dailyLimit || 20
-    const remainingLimit = Math.max(0, dailyLimit - todayUsed)
+    // 3단계: 정렬
+    { $sort: { createdAt: -1 } }
+  ]
 
-    return {
-      email: user.email,
-      name: user.name || null,
-      image: user.image || null,
-      dailyLimit: dailyLimit,
-      remainingLimit: remainingLimit,  // ✅ api_usage 기반 실시간 계산
-      todayUsed: todayUsed,            // ✅ api_usage.count에서 가져옴
-      lastResetDate: user.lastResetDate || new Date().toISOString().split('T')[0],
-      isActive: user.isActive !== false,
-      isBanned: user.isBanned || false,
-      isOnline: user.isOnline || false,
-      lastActive: user.lastActive || new Date(),
-      lastLogin: user.lastLogin || new Date(),
-      provider: user.provider || undefined,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    }
-  }))
+  // 전체 개수 조회
+  const countResult = await usersCollection.aggregate([...pipeline, { $count: 'total' }]).toArray()
+  const total = countResult[0]?.total ?? 0
+
+  // 페이지네이션 적용
+  const paginatedPipeline = [
+    ...pipeline,
+    { $skip: (page - 1) * limit },
+    { $limit: limit }
+  ]
+
+  const users = await usersCollection.aggregate(paginatedPipeline).toArray()
+
+  return {
+    users: users as AdminUser[],
+    total,
+    page,
+    totalPages: Math.ceil(total / limit)
+  }
 }
 
-export async function searchUsers(query: string): Promise<AdminUser[]> {
+export async function searchUsers(
+  query: string,
+  page: number = 1,
+  limit: number = 50
+): Promise<{ users: AdminUser[]; total: number; page: number; totalPages: number }> {
   const { db } = await connectToDatabase()
   const usersCollection = db.collection('users')
-  const apiUsageCollection = db.collection('api_usage')
 
   // KST 기준 오늘 날짜
   const today = new Date()
@@ -64,86 +116,173 @@ export async function searchUsers(query: string): Promise<AdminUser[]> {
     ],
   }
 
-  const users = await usersCollection
-    .find(searchFilter)
-    .sort({ createdAt: -1 })
-    .toArray()
+  // ✅ Aggregation Pipeline으로 N+1 쿼리 제거
+  const pipeline = [
+    // 1단계: 검색 필터
+    { $match: searchFilter },
 
-  return Promise.all(users.map(async (user: any) => {
-    // api_usage에서 오늘 사용량 조회
-    const apiUsage = await apiUsageCollection.findOne({
-      email: user.email,
-      date: todayStr
-    })
+    // 2단계: api_usage 컬렉션과 JOIN
+    {
+      $lookup: {
+        from: 'api_usage',
+        let: { userEmail: '$email' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$email', '$$userEmail'] },
+                  { $eq: ['$date', todayStr] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'apiUsageData'
+      }
+    },
 
-    const todayUsed = apiUsage?.count ?? 0
-    const dailyLimit = user.dailyLimit || 20
-    const remainingLimit = Math.max(0, dailyLimit - todayUsed)
+    // 3단계: 필드 변환 및 계산
+    {
+      $project: {
+        email: 1,
+        name: { $ifNull: ['$name', null] },
+        image: { $ifNull: ['$image', null] },
+        dailyLimit: { $ifNull: ['$dailyLimit', 20] },
+        todayUsed: {
+          $ifNull: [{ $arrayElemAt: ['$apiUsageData.count', 0] }, 0]
+        },
+        remainingLimit: {
+          $max: [
+            0,
+            {
+              $subtract: [
+                { $ifNull: ['$dailyLimit', 20] },
+                { $ifNull: [{ $arrayElemAt: ['$apiUsageData.count', 0] }, 0] }
+              ]
+            }
+          ]
+        },
+        lastResetDate: {
+          $ifNull: ['$lastResetDate', todayStr]
+        },
+        isActive: { $ifNull: ['$isActive', true] },
+        isBanned: { $ifNull: ['$isBanned', false] },
+        isOnline: { $ifNull: ['$isOnline', false] },
+        lastActive: { $ifNull: ['$lastActive', new Date()] },
+        lastLogin: { $ifNull: ['$lastLogin', new Date()] },
+        provider: { $ifNull: ['$provider', null] },
+        createdAt: 1,
+        updatedAt: 1
+      }
+    },
 
-    return {
-      email: user.email,
-      name: user.name || null,
-      image: user.image || null,
-      dailyLimit: dailyLimit,
-      remainingLimit: remainingLimit,  // ✅ api_usage 기반 실시간 계산
-      todayUsed: todayUsed,            // ✅ api_usage.count에서 가져옴
-      lastResetDate: user.lastResetDate || new Date().toISOString().split('T')[0],
-      isActive: user.isActive !== false,
-      isBanned: user.isBanned || false,
-      isOnline: user.isOnline || false,
-      lastActive: user.lastActive || new Date(),
-      lastLogin: user.lastLogin || new Date(),
-      provider: user.provider || undefined,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    }
-  }))
+    // 4단계: 정렬
+    { $sort: { createdAt: -1 } }
+  ]
+
+  // 전체 개수 조회
+  const countResult = await usersCollection.aggregate([...pipeline, { $count: 'total' }]).toArray()
+  const total = countResult[0]?.total ?? 0
+
+  // 페이지네이션 적용
+  const paginatedPipeline = [
+    ...pipeline,
+    { $skip: (page - 1) * limit },
+    { $limit: limit }
+  ]
+
+  const users = await usersCollection.aggregate(paginatedPipeline).toArray()
+
+  return {
+    users: users as AdminUser[],
+    total,
+    page,
+    totalPages: Math.ceil(total / limit)
+  }
 }
 
 export async function getUserById(email: string): Promise<AdminUser | null> {
   const { db } = await connectToDatabase()
   const usersCollection = db.collection('users')
-  const apiUsageCollection = db.collection('api_usage')
 
   console.log(`🔍 getUserById - email: ${email}`)
 
-  const user = await usersCollection.findOne({ email })
+  // KST 기준 오늘 날짜
+  const today = new Date()
+  const kstDate = new Date(today.getTime() + 9 * 60 * 60 * 1000)
+  const todayStr = kstDate.toISOString().split('T')[0]
 
-  if (user) {
-    console.log(`✅ 사용자 찾음: ${user.email}`)
+  // ✅ Aggregation Pipeline으로 N+1 쿼리 제거
+  const pipeline = [
+    // 1단계: 이메일로 필터
+    { $match: { email } },
 
-    // KST 기준 오늘 날짜
-    const today = new Date()
-    const kstDate = new Date(today.getTime() + 9 * 60 * 60 * 1000)
-    const todayStr = kstDate.toISOString().split('T')[0]
+    // 2단계: api_usage 컬렉션과 JOIN
+    {
+      $lookup: {
+        from: 'api_usage',
+        let: { userEmail: '$email' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$email', '$$userEmail'] },
+                  { $eq: ['$date', todayStr] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'apiUsageData'
+      }
+    },
 
-    // api_usage에서 오늘 사용량 조회
-    const apiUsage = await apiUsageCollection.findOne({
-      email: user.email,
-      date: todayStr
-    })
+    // 3단계: 필드 변환 및 계산
+    {
+      $project: {
+        email: 1,
+        name: { $ifNull: ['$name', null] },
+        image: { $ifNull: ['$image', null] },
+        dailyLimit: { $ifNull: ['$dailyLimit', 20] },
+        todayUsed: {
+          $ifNull: [{ $arrayElemAt: ['$apiUsageData.count', 0] }, 0]
+        },
+        remainingLimit: {
+          $max: [
+            0,
+            {
+              $subtract: [
+                { $ifNull: ['$dailyLimit', 20] },
+                { $ifNull: [{ $arrayElemAt: ['$apiUsageData.count', 0] }, 0] }
+              ]
+            }
+          ]
+        },
+        lastResetDate: {
+          $ifNull: ['$lastResetDate', todayStr]
+        },
+        isActive: { $ifNull: ['$isActive', true] },
+        isBanned: { $ifNull: ['$isBanned', false] },
+        isOnline: { $ifNull: ['$isOnline', false] },
+        lastActive: { $ifNull: ['$lastActive', new Date()] },
+        lastLogin: { $ifNull: ['$lastLogin', new Date()] },
+        provider: { $ifNull: ['$provider', null] },
+        createdAt: 1,
+        updatedAt: 1
+      }
+    },
 
-    const todayUsed = apiUsage?.count ?? 0
-    const dailyLimit = user.dailyLimit || 20
-    const remainingLimit = Math.max(0, dailyLimit - todayUsed)
+    // 4단계: 첫 결과만
+    { $limit: 1 }
+  ]
 
-    return {
-      email: user.email,
-      name: user.name || null,
-      image: user.image || null,
-      dailyLimit: dailyLimit,
-      remainingLimit: remainingLimit,  // ✅ api_usage 기반 실시간 계산
-      todayUsed: todayUsed,            // ✅ api_usage.count에서 가져옴
-      lastResetDate: user.lastResetDate || new Date().toISOString().split('T')[0],
-      isActive: user.isActive !== false,
-      isBanned: user.isBanned || false,
-      isOnline: user.isOnline || false,
-      lastActive: user.lastActive || new Date(),
-      lastLogin: user.lastLogin || new Date(),
-      provider: user.provider || undefined,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    }
+  const results = await usersCollection.aggregate(pipeline).toArray()
+
+  if (results.length > 0) {
+    console.log(`✅ 사용자 찾음: ${results[0].email}`)
+    return results[0] as AdminUser
   }
 
   return null
@@ -152,44 +291,84 @@ export async function getUserById(email: string): Promise<AdminUser | null> {
 export async function getUserByEmail(email: string): Promise<AdminUser | null> {
   const { db } = await connectToDatabase()
   const usersCollection = db.collection('users')
-  const apiUsageCollection = db.collection('api_usage')
-
-  const user = await usersCollection.findOne({ email })
-
-  if (!user) return null
 
   // KST 기준 오늘 날짜
   const today = new Date()
   const kstDate = new Date(today.getTime() + 9 * 60 * 60 * 1000)
   const todayStr = kstDate.toISOString().split('T')[0]
 
-  // api_usage에서 오늘 사용량 조회
-  const apiUsage = await apiUsageCollection.findOne({
-    email: user.email,
-    date: todayStr
-  })
+  // ✅ Aggregation Pipeline으로 N+1 쿼리 제거
+  const pipeline = [
+    // 1단계: 이메일로 필터
+    { $match: { email } },
 
-  const todayUsed = apiUsage?.count ?? 0
-  const dailyLimit = user.dailyLimit || 20
-  const remainingLimit = Math.max(0, dailyLimit - todayUsed)
+    // 2단계: api_usage 컬렉션과 JOIN
+    {
+      $lookup: {
+        from: 'api_usage',
+        let: { userEmail: '$email' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$email', '$$userEmail'] },
+                  { $eq: ['$date', todayStr] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'apiUsageData'
+      }
+    },
 
-  return {
-    email: user.email,
-    name: user.name || null,
-    image: user.image || null,
-    dailyLimit: dailyLimit,
-    remainingLimit: remainingLimit,  // ✅ api_usage 기반 실시간 계산
-    todayUsed: todayUsed,            // ✅ api_usage.count에서 가져옴
-    lastResetDate: user.lastResetDate || new Date().toISOString().split('T')[0],
-    isActive: user.isActive !== false,
-    isBanned: user.isBanned || false,
-    isOnline: user.isOnline || false,
-    lastActive: user.lastActive || new Date(),
-    lastLogin: user.lastLogin || new Date(),
-    provider: user.provider || undefined,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
+    // 3단계: 필드 변환 및 계산
+    {
+      $project: {
+        email: 1,
+        name: { $ifNull: ['$name', null] },
+        image: { $ifNull: ['$image', null] },
+        dailyLimit: { $ifNull: ['$dailyLimit', 20] },
+        todayUsed: {
+          $ifNull: [{ $arrayElemAt: ['$apiUsageData.count', 0] }, 0]
+        },
+        remainingLimit: {
+          $max: [
+            0,
+            {
+              $subtract: [
+                { $ifNull: ['$dailyLimit', 20] },
+                { $ifNull: [{ $arrayElemAt: ['$apiUsageData.count', 0] }, 0] }
+              ]
+            }
+          ]
+        },
+        lastResetDate: {
+          $ifNull: ['$lastResetDate', todayStr]
+        },
+        isActive: { $ifNull: ['$isActive', true] },
+        isBanned: { $ifNull: ['$isBanned', false] },
+        isOnline: { $ifNull: ['$isOnline', false] },
+        lastActive: { $ifNull: ['$lastActive', new Date()] },
+        lastLogin: { $ifNull: ['$lastLogin', new Date()] },
+        provider: { $ifNull: ['$provider', null] },
+        createdAt: 1,
+        updatedAt: 1
+      }
+    },
+
+    // 4단계: 첫 결과만
+    { $limit: 1 }
+  ]
+
+  const results = await usersCollection.aggregate(pipeline).toArray()
+
+  if (results.length > 0) {
+    return results[0] as AdminUser
   }
+
+  return null
 }
 
 export async function updateUserLimit(
