@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { AlertCircle, ArrowLeft } from 'lucide-react'
+import { AlertCircle, ArrowLeft, LogOut } from 'lucide-react'
 import Link from 'next/link'
+import { signOut } from 'next-auth/react'
 import LogTable from '@/app/components/LogTable'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -109,6 +110,17 @@ export default function LogsPage() {
                 돌아가기
               </Button>
             </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2"
+              onClick={async () => {
+                await signOut({ callbackUrl: '/login' })
+              }}
+            >
+              <LogOut className="w-4 h-4" />
+              로그아웃
+            </Button>
           </div>
           <div className="space-y-2">
             <h1 className="text-3xl font-bold tracking-tight">감사 로그</h1>

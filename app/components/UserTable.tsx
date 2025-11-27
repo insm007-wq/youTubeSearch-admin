@@ -67,7 +67,8 @@ export default function UserTable({
   // ✅ 백엔드 페이지네이션 또는 클라이언트 페이지네이션 모드 선택
   const isBackendPagination = externalCurrentPage !== undefined && externalTotalPages !== undefined && onPageChange !== undefined
   const displayCurrentPage = isBackendPagination ? externalCurrentPage : currentPage
-  const displayTotalPages = isBackendPagination ? externalTotalPages : totalPages
+  const clientTotalPages = Math.ceil(users.length / itemsPerPage)
+  const displayTotalPages = isBackendPagination ? externalTotalPages : clientTotalPages
 
   const setCurrentPage = (page: number) => {
     if (isBackendPagination && onPageChange) {

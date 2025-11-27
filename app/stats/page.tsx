@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, TrendingUp, Users, Search, AlertCircle, Zap } from 'lucide-react'
+import { ArrowLeft, TrendingUp, Users, Search, AlertCircle, Zap, LogOut } from 'lucide-react'
+import { signOut } from 'next-auth/react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -109,6 +110,17 @@ export default function StatsPage() {
                 돌아가기
               </Button>
             </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2"
+              onClick={async () => {
+                await signOut({ callbackUrl: '/login' })
+              }}
+            >
+              <LogOut className="w-4 h-4" />
+              로그아웃
+            </Button>
           </div>
           <div className="space-y-2">
             <h1 className="text-3xl font-bold tracking-tight">API 사용량 통계</h1>

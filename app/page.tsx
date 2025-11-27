@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { AlertCircle, Users, UserCheck, UserX, Zap, Settings2, UserCog, FileText, BarChart3 } from 'lucide-react'
+import { AlertCircle, Users, UserCheck, UserX, Zap, Settings2, UserCog, FileText, BarChart3, LogOut } from 'lucide-react'
+import { signOut } from 'next-auth/react'
 import SearchBar from './components/SearchBar'
 import UserTable from './components/UserTable'
 import EditUserModal from './components/EditUserModal'
@@ -128,7 +129,7 @@ export default function AdminPage() {
   }
 
   // 카드 클릭 핸들러
-  const handleCardClick = async (filter: 'all' | 'online' | 'active' | 'inactive') => {
+  const handleCardClick = async (filter: 'all' | 'online' | 'active' | 'inactive' | 'depleted') => {
     setFilterType(filter)
     setCurrentPage(1)
     setSearchQuery('')
@@ -486,6 +487,17 @@ export default function AdminPage() {
                   감사 로그
                 </Button>
               </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={async () => {
+                  await signOut({ callbackUrl: '/login' })
+                }}
+              >
+                <LogOut className="w-4 h-4" />
+                로그아웃
+              </Button>
             </div>
           </div>
         </div>
