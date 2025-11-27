@@ -2,11 +2,7 @@ import { auth } from '@/auth'
 import { NextResponse } from 'next/server'
 
 export default auth((req) => {
-  if (!req) {
-    return NextResponse.next()
-  }
-
-  const pathname = req.nextUrl?.pathname || '/'
+  const pathname = req.nextUrl.pathname
   const isLoggedIn = !!req.auth
 
   const isPublicPath = pathname === '/login'
@@ -21,14 +17,14 @@ export default auth((req) => {
 
   // 로그인되지 않았고 공개 경로가 아니면 로그인 페이지로
   if (!isLoggedIn && !isPublicPath) {
-    const url = new URL('/login', req.url)
-    url.searchParams.set('callbackUrl', pathname)
-    return NextResponse.redirect(url)
+    return NextResponse.redirect(
+      new URL(`/login?callbackUrl=${encodeURIComponent(pathname)}`, req.nextUrl.origin)
+    )
   }
 
   // 로그인했는데 로그인 페이지 접근 시 홈으로
   if (isLoggedIn && isPublicPath) {
-    return NextResponse.redirect(new URL('/', req.url))
+    return NextResponse.redirect(new URL('/', req.nextUrl.origin))
   }
 
   return NextResponse.next()
