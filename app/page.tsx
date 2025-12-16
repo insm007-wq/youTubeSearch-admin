@@ -46,6 +46,7 @@ export default function AdminPage() {
   const [activeUsers, setActiveUsers] = useState(0)
   const [deactivatedUsers, setDeactivatedUsers] = useState(0)
   const [depletedUsers, setDepletedUsers] = useState(0)
+  const [totalAllUsers, setTotalAllUsers] = useState(0)
   const [filterType, setFilterType] = useState<'all' | 'online' | 'active' | 'inactive' | 'depleted'>('all')
 
   // 초기 사용자 목록 로드
@@ -62,6 +63,7 @@ export default function AdminPage() {
 
       if (data.success && data.data.users) {
         console.log(`📊 통계 로드: 활성=${data.data.users.active}, 비활성=${data.data.users.inactive}, 온라인=${data.data.users.onlineUsers}, 소진=${data.data.users.depletedUsers}`)
+        setTotalAllUsers(data.data.users.totalUsers || 0)
         setActiveUsers(data.data.users.active || 0)
         setDeactivatedUsers(data.data.users.inactive || 0)
         setOnlineUsers(data.data.users.onlineUsers || 0)
@@ -134,6 +136,7 @@ export default function AdminPage() {
     setCurrentPage(1)
     setSearchQuery('')
     await loadUsers(1, '', filter)
+    await loadStats()
   }
 
   const handleEditClick = (user: User) => {
@@ -431,7 +434,7 @@ export default function AdminPage() {
     {
       icon: <Users className="w-5 h-5" />,
       label: '전체 사용자',
-      value: totalUsers,
+      value: totalAllUsers,
       color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
     },
     {
